@@ -782,10 +782,103 @@
       border-color: #f59e0b;
       box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
     }
+
+    /* [피드백 4] 지하철 창문 오버레이 FX (1인칭 승객 시점 전용) */
+    #subway-window-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box;
+      transition: opacity 0.25s ease;
+    }
+
+    .window-bezel-top {
+      height: 22px;
+      background: linear-gradient(180deg, #182028 0%, #333d48 65%, #4f5b68 88%, #222a34 100%);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+    .window-bezel-top::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.22);
+    }
+
+    .window-bezel-sides {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      box-shadow: inset 20px 0 30px -10px rgba(10, 15, 22, 0.55),
+                  inset -20px 0 30px -10px rgba(10, 15, 22, 0.55);
+    }
+
+    .window-sill-bottom {
+      height: 44px;
+      background: linear-gradient(180deg, #576574 0%, #404c5a 15%, #2a333d 60%, #171d24 100%);
+      border-top: 2px solid rgba(255, 255, 255, 0.4);
+      box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .window-sill-groove {
+      width: 60%;
+      height: 5px;
+      background: #0f141a;
+      border-radius: 3px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .window-glass-pane {
+      position: absolute;
+      inset: 22px 0 44px 0;
+      pointer-events: none;
+      background: 
+        /* 햇빛 대각선 반사 한 줄 (Sunlight Ribbon Sheen) */
+        linear-gradient(125deg, transparent 40%, rgba(255, 250, 235, 0.05) 44%, rgba(255, 255, 255, 0.09) 46%, rgba(255, 250, 235, 0.04) 48%, transparent 52%),
+        /* 실내 조명/좌석 은은한 반사 */
+        radial-gradient(circle at 75% 85%, rgba(61, 154, 176, 0.035) 0%, transparent 45%),
+        radial-gradient(circle at 25% 15%, rgba(255, 250, 240, 0.035) 0%, transparent 50%),
+        /* 미세한 유리 틴트 */
+        linear-gradient(180deg, rgba(160, 210, 235, 0.015) 0%, rgba(20, 35, 50, 0.025) 100%);
+    }
+
+    .window-scratch-texture {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 0);
+      background-size: 140px 120px;
+      opacity: 0.3;
+      mix-blend-mode: overlay;
+    }
   </style>
 </head>
 <body>
   <canvas id="stage"></canvas>
+
+  <!-- [피드백 4] 승객 1인칭 시점 지하철 창문 오버레이 (창틀, 유리 반사, 햇살 림, 미세 텍스처) -->
+  <div id="subway-window-overlay">
+    <div class="window-bezel-top"></div>
+    <div class="window-glass-pane">
+      <div class="window-scratch-texture"></div>
+    </div>
+    <div class="window-bezel-sides"></div>
+    <div class="window-sill-bottom">
+      <div class="window-sill-groove"></div>
+    </div>
+  </div>
 
   <!-- 상단 좌측: 역 명칭 카드 -->
   <div id="card-station">
@@ -1377,61 +1470,58 @@
         varying vec3 vWorldPos;
         varying vec3 vNormalW;
         varying float vWaveHeight;
+        varying float vCamDist;
         uniform float uTime;
 
         void main() {
           vUv = uv;
           vec3 p = position;
 
-          // 한강 파도 좌표계 (X: 교량 직각/강 폭, -Y: 강물 흐름 Z)
+          // 한강 파도 좌표계 (X: 강 폭, -Y: 유역 Z축)
           float x = p.x;
           float z = -p.y;
 
-          // 4개의 트로코이달(Gerstner) 파도 옥타브 합성
-          // Wave 1: 드넓은 한강의 본류 파도 (파장 75m)
-          float k1 = 0.019;
-          float w1 = uTime * 1.35;
-          vec2 d1 = normalize(vec2(0.85, 0.52));
-          float dot1 = (d1.x * x + d1.y * z) * k1 + w1;
-          float a1 = 0.36;
+          // 1. 대형 조류 흐름 (파장 140m, 느린 본류)
+          float k1 = 0.009;
+          vec2 d1 = normalize(vec2(0.92, 0.38));
+          float dot1 = (d1.x * x + d1.y * z) * k1 + uTime * 0.75;
+          float a1 = 0.28;
 
-          // Wave 2: 교각 및 강변 반사 파도 (파장 42m)
-          float k2 = 0.036;
-          float w2 = -uTime * 1.15;
-          vec2 d2 = normalize(vec2(-0.64, 0.77));
-          float dot2 = (d2.x * x + d2.y * z) * k2 + w2;
-          float a2 = 0.24;
+          // 2. 중형 교각/바람 너울 (파장 38m, 비스듬한 간섭파)
+          float k2 = 0.033;
+          vec2 d2 = normalize(vec2(-0.55, 0.83));
+          float dot2 = (d2.x * x + d2.y * z) * k2 - uTime * 1.15;
+          float a2 = 0.16;
 
-          // Wave 3: 바람결 중형 너울 (파장 22m)
-          float k3 = 0.068;
-          float w3 = uTime * 2.1;
-          vec2 d3 = normalize(vec2(0.38, -0.92));
-          float dot3 = (d3.x * x + d3.y * z) * k3 + w3;
-          float a3 = 0.15;
+          // 3. 비대칭 회전 잔물결 (파장 16m)
+          float k3 = 0.078;
+          vec2 d3 = normalize(vec2(0.71, -0.70));
+          float dot3 = (d3.x * x + d3.y * z) * k3 + uTime * 1.85;
+          float a3 = 0.09;
 
-          // Wave 4: 소형 잔물결 (파장 11m)
-          float k4 = 0.12;
-          float w4 = uTime * 2.9;
-          vec2 d4 = normalize(vec2(-0.91, -0.41));
-          float dot4 = (d4.x * x + d4.y * z) * k4 + w4;
-          float a4 = 0.08;
+          // 4. 불규칙 소형 물결 (파장 7m)
+          float k4 = 0.18;
+          vec2 d4 = normalize(vec2(-0.82, -0.57));
+          float dot4 = (d4.x * x + d4.y * z) * k4 + uTime * 2.6;
+          float a4 = 0.045;
 
           float h = a1 * sin(dot1) + a2 * sin(dot2) + a3 * sin(dot3) + a4 * sin(dot4);
           p.z += h;
           vWaveHeight = h;
 
-          // 트로코이달 파도의 수평 수축(크레스트 첨두화, 트러프 완만화)
-          float q = 0.38;
+          // 트로코이달 수평 변위
+          float q = 0.28;
           p.x += -q * (d1.x * a1 * cos(dot1) + d2.x * a2 * cos(dot2) + d3.x * a3 * cos(dot3));
           p.y += q * (d1.y * a1 * cos(dot1) + d2.y * a2 * cos(dot2) + d3.y * a3 * cos(dot3));
 
           vec4 wp = modelMatrix * vec4(p, 1.0);
           vWorldPos = wp.xyz;
+          vCamDist = length(cameraPosition.xz - wp.xz);
 
-          // 정밀 정점 법선 벡터
+          // 정밀 법선 계산
           float sX = d1.x * a1 * k1 * cos(dot1) + d2.x * a2 * k2 * cos(dot2) + d3.x * a3 * k3 * cos(dot3) + d4.x * a4 * k4 * cos(dot4);
           float sZ = d1.y * a1 * k1 * cos(dot1) + d2.y * a2 * k2 * cos(dot2) + d3.y * a3 * k3 * cos(dot3) + d4.y * a4 * k4 * cos(dot4);
-          vNormalW = normalize(vec3(-sX * 1.8, 1.0, -sZ * 1.8));
+          vNormalW = normalize(vec3(-sX * 1.5, 1.0, -sZ * 1.5));
 
           gl_Position = projectionMatrix * viewMatrix * wp;
         }
@@ -1441,6 +1531,7 @@
         varying vec3 vWorldPos;
         varying vec3 vNormalW;
         varying float vWaveHeight;
+        varying float vCamDist;
         uniform float uTime;
         uniform vec3 uSunDir;
         uniform vec3 uSunCol;
@@ -1448,53 +1539,72 @@
         uniform vec3 uDeepCol;
         uniform vec3 uShallowCol;
 
+        // 회전 기반 비반복 노이즈 샘플러
+        vec2 rotate(vec2 v, float a) {
+          float s = sin(a), c = cos(a);
+          return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+        }
+
         void main() {
           vec3 viewDir = normalize(cameraPosition - vWorldPos);
 
-          // 1. 픽셀 단위 절차적 유기적 모세관 잔물결 (Capillary Waves)
-          vec2 p = vWorldPos.xz;
-          float t = uTime * 1.6;
+          // [피드백 1: 거리 기반 감쇠 LOD] - 먼 곳은 잔잔하게, 가까운 곳만 흐름 강조
+          float distFade = clamp(1.0 - (vCamDist - 120.0) / 1400.0, 0.08, 1.0);
 
-          float dN1 = sin(p.x * 0.52 + p.y * 0.41 + t * 2.3) * 0.085;
-          float dN2 = cos(p.x * 1.05 - p.y * 0.88 - t * 2.9) * 0.055;
-          float dN3 = sin((p.x + p.y) * 2.4 + t * 4.4) * 0.035;
-          float dN4 = cos((p.x * 2.1 - p.y * 2.7) + t * 5.8) * 0.022;
-          float dN5 = sin((p.x * 4.6 + p.y * 4.2) - t * 7.4) * 0.014;
+          // [피드백 1: 물결 스케일 3개 유기적 혼합 + 회전으로 반복감 제거]
+          vec2 p = vWorldPos.xz * 0.18;
+          float t = uTime * 0.9;
 
-          vec3 microPerturb = vec3(dN1 + dN2 + dN3 + dN4 + dN5, 0.0, dN2 - dN1 + dN4 - dN3);
-          vec3 normal = normalize(vNormalW + microPerturb * 3.2);
+          // 레이어 1: 완만한 흐름
+          vec2 p1 = rotate(p, 0.32) + vec2(t * 0.8, t * 0.3);
+          float n1 = sin(p1.x * 1.4 + p1.y * 0.9);
 
-          // 2. 한강 수심별 산란색
-          vec3 waterCol = mix(uDeepCol, uShallowCol, smoothstep(-0.35, 0.45, vWaveHeight));
+          // 레이어 2: 교차 바람결 (각도 45도 회전)
+          vec2 p2 = rotate(p * 2.3, -0.65) - vec2(t * 1.1, -t * 0.7);
+          float n2 = cos(p2.x * 1.8 - p2.y * 1.2);
+
+          // 레이어 3: 근거리 고주파 모세관파
+          vec2 p3 = rotate(p * 5.2, 1.15) + vec2(-t * 1.9, t * 1.4);
+          float n3 = sin((p3.x + p3.y) * 2.2);
+
+          // 비반복 섭동 합성 (거리 멀어지면 미세파 감쇠)
+          float perturbX = (n1 * 0.045 + n2 * 0.028 + n3 * 0.015 * distFade);
+          float perturbZ = (n2 * 0.042 - n1 * 0.025 + n3 * 0.016 * distFade);
+          vec3 normal = normalize(vNormalW + vec3(perturbX, 0.0, perturbZ) * (1.8 + distFade * 2.2));
+
+          // [피드백 1: 투명도 및 수심/강물 톤 미세 랜덤화]
+          float waveTone = smoothstep(-0.3, 0.35, vWaveHeight) + n1 * 0.08;
+          vec3 waterCol = mix(uDeepCol, uShallowCol, clamp(waveTone, 0.0, 1.0));
+          // 자연스러운 한강 퇴적토 미네랄 미세 틴트
+          waterCol += vec3(0.008, 0.022, 0.018) * (1.0 - distFade * 0.4);
 
           // 피하 산란(Subsurface Scattering)
-          float sss = pow(clamp(dot(viewDir, -uSunDir), 0.0, 1.0), 3.8) * (0.55 + 0.45 * vWaveHeight);
-          waterCol += (uSunCol * 0.35 + vec3(0.04, 0.28, 0.22)) * sss * 0.65;
+          float sss = pow(clamp(dot(viewDir, -uSunDir), 0.0, 1.0), 3.5) * (0.45 + 0.55 * waveTone);
+          waterCol += (uSunCol * 0.28 + vec3(0.02, 0.18, 0.15)) * sss * 0.5;
 
-          // 3. 물리 기반 프레넬 반사 (Schlick Fresnel)
-          float fresnel = 0.02 + 0.98 * pow(clamp(1.0 - max(dot(normal, viewDir), 0.0), 0.0, 1.0), 5.0);
-          vec3 skyReflection = mix(uSkyCol, uSkyCol * 0.5, clamp(normal.y, 0.0, 1.0));
-          vec3 finalWater = mix(waterCol, skyReflection, fresnel * 0.85);
+          // 프레넬 반사 (Schlick Fresnel)
+          float fresnel = 0.03 + 0.97 * pow(clamp(1.0 - max(dot(normal, viewDir), 0.0), 0.0, 1.0), 5.0);
+          vec3 skyReflection = mix(uSkyCol, uSkyCol * 0.65, clamp(normal.y, 0.0, 1.0));
+          vec3 finalWater = mix(waterCol, skyReflection, fresnel * 0.88);
 
-          // 4. 자연스럽고 영롱한 한강 윤슬 (규칙적인 격자/다이아몬드 패턴 완전 제거)
+          // [피드백 1: 물 위에 약하고 은은한 하이라이트 & 윤슬]
           vec3 halfVec = normalize(uSunDir + viewDir);
           float nDotH = clamp(dot(normal, halfVec), 0.0, 1.0);
 
-          // 광활한 태양 반사 리본 대역
-          float broadSpecular = pow(nDotH, 50.0) * 2.2;
+          // 광활한 태양 리본 하이라이트 (과하지 않고 고급스러운 세기)
+          float broadSpecular = pow(nDotH, 65.0) * (0.8 + 0.6 * distFade);
 
-          // 유기적인 물결 미세 반짝임 (연속 함수로 자연스러운 일렁임 연출)
-          vec2 pG = vWorldPos.xz * 0.35;
-          float glint1 = sin(pG.x * 2.1 + pG.y * 1.7 + uTime * 3.2);
-          float glint2 = cos(pG.x * -1.8 + pG.y * 2.9 - uTime * 2.7);
-          float glint3 = sin((pG.x + pG.y) * 4.3 + uTime * 4.1);
-          float naturalGlint = clamp((glint1 + glint2 + glint3) * 0.33 + 0.5, 0.0, 1.0);
-          float microFacet = pow(nDotH, 130.0) * pow(naturalGlint, 4.0) * 4.5;
+          // 섬세한 미세 반짝임 (근거리에서만 생동감 있게 맺힘)
+          float glintNoise = sin(p2.x * 4.0 + t * 2.5) * cos(p3.y * 3.5 - t * 2.0);
+          float glintMask = smoothstep(0.35, 0.85, glintNoise);
+          float microGlint = pow(nDotH, 180.0) * glintMask * 2.8 * distFade;
 
-          finalWater += (broadSpecular * uSunCol + microFacet * (uSunCol * 1.4));
-          finalWater = clamp(finalWater, vec3(0.0), vec3(3.0));
+          finalWater += (broadSpecular * uSunCol * 0.85 + microGlint * uSunCol * 1.1);
+          finalWater = clamp(finalWater, vec3(0.0), vec3(2.5));
 
-          gl_FragColor = vec4(finalWater, 0.98);
+          // 프레넬 각도에 따른 자연스러운 수면 투명도 (0.88 ~ 0.98)
+          float alpha = mix(0.88, 0.98, fresnel);
+          gl_FragColor = vec4(finalWater, alpha);
         }
       `
     });
@@ -2294,6 +2404,158 @@
     scene.add(rockGroup);
 
     // ============================================================
+    // [피드백 2] 한강 둔치 선형 요소 & 생활감 (자전거도로, 제방, 펜스, 벤치, 운동기구, 정자)
+    // ============================================================
+    const riversideLinearGroup = new THREE.Group();
+
+    // 재질 정의
+    const bikeLaneMat = new THREE.MeshStandardMaterial({ color: 0x9e382b, roughness: 0.85 }); // 한강 자전거도로 적갈색 아스콘
+    const walkLaneMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.88 }); // 녹색 우레탄 보행로
+    const yellowStripeMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b }); // 중앙 노란색 차선
+    const revetmentMat = new THREE.MeshStandardMaterial({ color: 0x88929c, roughness: 0.8 }); // 계단식 호안 석축
+    const fencePostMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 }); // 난간 기둥
+    const fenceWireMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 }); // 은색 와이어
+    const woodBenchMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.7 }); // 목재 벤치
+    const gymSteelMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.6, roughness: 0.3 }); // 야외 운동기구 하늘색 스틸
+    const yellowGymMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 }); // 운동기구 손잡이 노란색
+    const pagodaRoofMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 }); // 정자 지붕
+
+    // 남단(Z > 0) 및 북단(Z < 0) 둔치 선형 도로 생성
+    [-1, 1].forEach(side => {
+      const bz = side * 464; // 자전거도로 Z
+      const wz = side * 468; // 보행로 Z
+      const len = 3200;
+
+      // 1. 적갈색 자전거도로 (폭 3.2m)
+      const bikeLane = new THREE.Mesh(new THREE.PlaneGeometry(len, 3.2), bikeLaneMat);
+      bikeLane.rotation.x = -Math.PI / 2;
+      bikeLane.position.set(0, 4.51, bz);
+      riversideLinearGroup.add(bikeLane);
+
+      // 중앙 노란색 실선 (폭 0.12m)
+      const yellowLine = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.14), yellowStripeMat);
+      yellowLine.rotation.x = -Math.PI / 2;
+      yellowLine.position.set(0, 4.515, bz);
+      riversideLinearGroup.add(yellowLine);
+
+      // 2. 녹색 우레탄 보행로 (폭 2.2m)
+      const walkLane = new THREE.Mesh(new THREE.PlaneGeometry(len, 2.2), walkLaneMat);
+      walkLane.rotation.x = -Math.PI / 2;
+      walkLane.position.set(0, 4.51, wz);
+      riversideLinearGroup.add(walkLane);
+
+      // 3. 계단식 호안 제방 (강물 쪽 3단 석축)
+      const stepZ = side * 448;
+      for (let s = 0; s < 3; s++) {
+        const step = new THREE.Mesh(
+          new THREE.BoxGeometry(len, 0.32, 1.2),
+          revetmentMat
+        );
+        step.position.set(0, 3.6 + s * 0.3, stepZ - side * s * 1.1);
+        riversideLinearGroup.add(step);
+      }
+
+      // 4. 낮은 안전 와이어 펜스 (자전거도로 강변 측)
+      const fenceZ = side * 461;
+      for (let fx = -1580; fx <= 1580; fx += 10) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.95, 6), fencePostMat);
+        post.position.set(fx, 4.5 + 0.475, fenceZ);
+        riversideLinearGroup.add(post);
+      }
+      // 가로 2줄 와이어
+      [0.4, 0.78].forEach(wh => {
+        const wire = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, len, 6), fenceWireMat);
+        wire.rotation.z = Math.PI / 2;
+        wire.position.set(0, 4.5 + wh, fenceZ);
+        riversideLinearGroup.add(wire);
+      });
+
+      // 5. 한강 둔치 벤치 (60m 간격)
+      for (let bx = -1400; bx <= 1400; bx += 65) {
+        const bench = new THREE.Group();
+        bench.position.set(bx, 4.5, side * 473);
+        bench.rotation.y = side > 0 ? 0 : Math.PI;
+
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 0.45), woodBenchMat);
+        seat.position.y = 0.45;
+        bench.add(seat);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.38, 0.06), woodBenchMat);
+        back.position.set(0, 0.72, -0.2);
+        bench.add(back);
+        [-0.8, 0.8].forEach(lx => {
+          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.4), fencePostMat);
+          leg.position.set(lx, 0.225, 0);
+          bench.add(leg);
+        });
+        riversideLinearGroup.add(bench);
+      }
+
+      // 6. 야외 운동기구 존 (180m 간격)
+      for (let gx = -1200; gx <= 1200; gx += 220) {
+        const gym = new THREE.Group();
+        gym.position.set(gx, 4.5, side * 478);
+
+        // 운동기구 바닥 우레탄 매트
+        const gymFloor = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.04, 4.5), walkLaneMat);
+        gymFloor.position.y = 0.02;
+        gym.add(gymFloor);
+
+        // 기구 1: 스텝퍼/공중걷기
+        const stepper = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.4, 8), gymSteelMat);
+        stepper.position.set(-1.8, 0.7, 0);
+        const handle1 = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.06), yellowGymMat);
+        handle1.position.set(-1.8, 1.35, 0);
+        gym.add(stepper);
+        gym.add(handle1);
+
+        // 기구 2: 허리돌리기 트위스터
+        const twister = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.1, 8), gymSteelMat);
+        twister.position.set(0, 0.55, 0);
+        const disk = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.08, 12), yellowGymMat);
+        disk.position.set(0, 0.1, 0);
+        gym.add(twister);
+        gym.add(disk);
+
+        // 기구 3: 온몸역기올리기
+        const press = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.6, 0.1), gymSteelMat);
+        press.position.set(1.8, 0.8, 0);
+        gym.add(press);
+
+        riversideLinearGroup.add(gym);
+      }
+
+      // 7. 한강 목조 정자/파고라 쉼터 (320m 간격)
+      for (let px = -1100; px <= 1100; px += 340) {
+        const pagoda = new THREE.Group();
+        pagoda.position.set(px, 4.5, side * 485);
+
+        // 바닥 데크 평상
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.35, 4.5), woodBenchMat);
+        deck.position.y = 0.18;
+        pagoda.add(deck);
+
+        // 기둥 4개
+        [-1.8, 1.8].forEach(kx => {
+          [-1.8, 1.8].forEach(kz => {
+            const col = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.6, 8), woodBenchMat);
+            col.position.set(kx, 1.48, kz);
+            pagoda.add(col);
+          });
+        });
+
+        // 전통 사각 지붕 (피라미드 루프)
+        const roof = new THREE.Mesh(new THREE.ConeGeometry(3.6, 1.2, 4), pagodaRoofMat);
+        roof.rotation.y = Math.PI / 4;
+        roof.position.y = 3.35;
+        pagoda.add(roof);
+
+        riversideLinearGroup.add(pagoda);
+      }
+    });
+
+    scene.add(riversideLinearGroup);
+
+    // ============================================================
     // 사실감 향상: 도로 위 이동 차량
     // ============================================================
     const vehicleGroup = new THREE.Group();
@@ -2936,7 +3198,12 @@
     const aptGroup = new THREE.Group();
     const aptBoxGeo = new THREE.BoxGeometry(1, 1, 1);
 
-    // [남단 잠실 아파트 대단지] - Z > 700에 정연하게 배치
+    // 건물 바닥 접지 재질 (포디움 기단, 보도블럭, 앰비언트 접지 그림자 림)
+    const podiumMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7, metalness: 0.2 });
+    const pavementMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.9 });
+    const groundShadowMat = new THREE.MeshBasicMaterial({ color: 0x11161d });
+
+    // [남단 잠실 아파트 대단지] - Z > 700에 정연하게 배치 + 바닥 접지 포디움 & 도로망
     const southAptCols = [-600, -420, -240, -60, 120, 300, 480, 660, 840, 1020, 1200, 1380, 1560, 1740];
     const southAptRows = [720, 870, 1040, 1220];
     southAptRows.forEach((rz, rowIdx) => {
@@ -2947,19 +3214,40 @@
         const w = 48 + ((colIdx + rowIdx) % 3) * 6;
         const h = 68 + ((colIdx * 3 + rowIdx) % 5) * 12;
         const d = 18;
+        const posX = cx + ((rowIdx % 2) * 20);
+
+        // [피드백 3] 1. 바닥 접지 그림자 림 (Ground Contact Shadow Rim)
+        const shadowPad = new THREE.Mesh(aptBoxGeo, groundShadowMat);
+        shadowPad.scale.set(w + 12, 0.08, d + 10);
+        shadowPad.position.set(posX, 4.54, rz);
+        aptGroup.add(shadowPad);
+
+        // [피드백 3] 2. 단지 보도블럭/아스팔트 진입로 패드
+        const pavePad = new THREE.Mesh(aptBoxGeo, pavementMat);
+        pavePad.scale.set(w + 18, 0.16, d + 16);
+        pavePad.position.set(posX, 4.56, rz);
+        aptGroup.add(pavePad);
+
+        // [피드백 3] 3. 1~2층 포디움 기단부 (상가/필로티)
+        const podium = new THREE.Mesh(aptBoxGeo, podiumMat);
+        podium.scale.set(w + 6, 3.6, d + 6);
+        podium.position.set(posX, 4.5 + 1.8, rz);
+        aptGroup.add(podium);
+
+        // 아파트 본체 타워
         const apt = new THREE.Mesh(aptBoxGeo, aptShaderMat);
         apt.scale.set(w, h, d);
-        apt.position.set(cx + ((rowIdx % 2) * 20), h / 2 + 4.5, rz);
+        apt.position.set(posX, h / 2 + 4.5 + 3.4, rz);
         aptGroup.add(apt);
 
         const roof = new THREE.Mesh(aptBoxGeo, aptShaderMat);
         roof.scale.set(w * 0.35, 6.5, d * 0.55);
-        roof.position.set(apt.position.x, h + 4.5 + 3.25, rz);
+        roof.position.set(posX, h + 4.5 + 3.4 + 3.25, rz);
         aptGroup.add(roof);
       });
     });
 
-    // [북단 강변/구의 아파트 및 상업 단지] - Z < -700에 정연하게 배치
+    // [북단 강변/구의 아파트 및 상업 단지] - Z < -700에 정연하게 배치 + 바닥 접지감
     const northAptCols = [-650, -450, -250, -50, 150, 350, 550, 750, 950, 1150, 1350, 1550];
     const northAptRows = [-720, -880, -1060, -1260];
     northAptRows.forEach((rz, rowIdx) => {
@@ -2967,14 +3255,35 @@
         const w = 46 + ((colIdx + rowIdx) % 3) * 8;
         const h = 64 + ((colIdx * 2 + rowIdx) % 4) * 14;
         const d = 20;
+        const posX = cx + ((rowIdx % 2) * 25);
+
+        // 1. 접지 그림자
+        const shadowPad = new THREE.Mesh(aptBoxGeo, groundShadowMat);
+        shadowPad.scale.set(w + 12, 0.08, d + 10);
+        shadowPad.position.set(posX, 4.54, rz);
+        aptGroup.add(shadowPad);
+
+        // 2. 보도블럭 패드
+        const pavePad = new THREE.Mesh(aptBoxGeo, pavementMat);
+        pavePad.scale.set(w + 18, 0.16, d + 16);
+        pavePad.position.set(posX, 4.56, rz);
+        aptGroup.add(pavePad);
+
+        // 3. 기단 포디움
+        const podium = new THREE.Mesh(aptBoxGeo, podiumMat);
+        podium.scale.set(w + 6, 3.6, d + 6);
+        podium.position.set(posX, 4.5 + 1.8, rz);
+        aptGroup.add(podium);
+
+        // 본체 타워
         const apt = new THREE.Mesh(aptBoxGeo, aptShaderMat);
         apt.scale.set(w, h, d);
-        apt.position.set(cx + ((rowIdx % 2) * 25), h / 2 + 4.5, rz);
+        apt.position.set(posX, h / 2 + 4.5 + 3.4, rz);
         aptGroup.add(apt);
 
         const roof = new THREE.Mesh(aptBoxGeo, aptShaderMat);
         roof.scale.set(w * 0.32, 6.0, d * 0.5);
-        roof.position.set(apt.position.x, h + 4.5 + 3.0, rz);
+        roof.position.set(posX, h + 4.5 + 3.4 + 3.0, rz);
         aptGroup.add(roof);
       });
     });
@@ -3902,10 +4211,9 @@
       const isPassenger = (i === 2);
       const exterior = buildSeoulMetroCarExterior(isLead, isPassenger, i);
 
-      if (isPassenger) {
-        const interior = buildSeoulMetroInterior();
-        carRoot.add(interior);
-      }
+      // [핵심] 10개 객차 전체에 정밀 인테리어 장착 (객차간 걷기 지원)
+      const interior = buildSeoulMetroInterior();
+      carRoot.add(interior);
 
       carRoot.add(exterior);
       scene.add(carRoot);
@@ -3914,6 +4222,71 @@
     window.cars = cars;
     window.lotteGroup = lotteGroup;
     console.log("Seoul Metro 10-car consist loaded with breathtaking Han River view!");
+
+    // ============================================================
+    // [사용자 요청] Kenney 3D 미니 캐릭터 (CC0) 로드 및 객차 승객 탑승
+    // ============================================================
+    const kenneyModelUrls = [
+      "models/characters/character-male-a.glb",
+      "models/characters/character-male-b.glb",
+      "models/characters/character-male-c.glb",
+      "models/characters/character-female-a.glb",
+      "models/characters/character-female-b.glb",
+      "models/characters/character-female-c.glb"
+    ];
+
+    const loadedKenneyChars = [];
+    kenneyModelUrls.forEach((url, kIdx) => {
+      glbLoader.load(url, (gltf) => {
+        const char = gltf.scene;
+        char.traverse(obj => {
+          if (obj.isMesh) {
+            obj.castShadow = false; // 성능을 위해 그림자 계산 제외 (60fps 유지)
+            obj.receiveShadow = true;
+          }
+        });
+        // 사람 신장 스케일 맞춤 (약 1.55m)
+        const b = new THREE.Box3().setFromObject(char);
+        const curH = b.max.y - b.min.y;
+        if (curH > 0) char.scale.setScalar(1.52 / curH);
+        loadedKenneyChars.push(char);
+
+        // 첫 번째 캐릭터 로드 완료 시 즉시 객차 내 승객 배치
+        if (loadedKenneyChars.length === 1) {
+          populateKenneySubwayPassengers();
+        }
+      }, undefined, (err) => {
+        console.warn("Kenney character load error:", url, err);
+      });
+    });
+
+    function populateKenneySubwayPassengers() {
+      if (loadedKenneyChars.length === 0 || !cars || cars.length === 0) return;
+      cars.forEach((cGroup, cIdx) => {
+        // 객차마다 좌석에 착석한 Kenney 캐릭터 4명
+        const seatZList = [-5.5, -3.8, 3.8, 5.5];
+        seatZList.forEach((sz, sIdx) => {
+          const charSrc = loadedKenneyChars[(cIdx + sIdx) % loadedKenneyChars.length];
+          if (!charSrc) return;
+          const passenger = charSrc.clone(true);
+          const side = (sIdx % 2 === 0) ? 1 : -1;
+          passenger.position.set(side * 1.12, 0.05, sz);
+          passenger.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+          cGroup.add(passenger);
+        });
+
+        // 서서 손잡이 잡고 있는 입석 승객 2명
+        if (cIdx % 2 === 0) {
+          const charSrc = loadedKenneyChars[(cIdx * 2) % loadedKenneyChars.length];
+          if (charSrc) {
+            const stander = charSrc.clone(true);
+            stander.position.set(0.42, 0.05, -2.0);
+            stander.rotation.y = Math.PI * 0.25;
+            cGroup.add(stander);
+          }
+        }
+      });
+    }
 
     // ------------------------------------------------------------
     // 10. 시점 시스템 & V 키 / WASD 이동 시스템 (사용자 요청 완벽 대응)
@@ -3945,6 +4318,12 @@
       allCamBtns.forEach(btn => {
         btn.classList.toggle("active", parseInt(btn.dataset.cam) === mode);
       });
+
+      // [피드백 4] 창문 오버레이: 1인칭 승객 시점(mode 2)일 때만 표시!
+      const winOverlay = document.querySelector("#subway-window-overlay");
+      if (winOverlay) {
+        winOverlay.style.display = (mode === 2) ? "flex" : "none";
+      }
 
       if (mode === 2) {
         bottomDash.style.display = "none";

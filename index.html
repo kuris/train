@@ -1082,6 +1082,9 @@
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.98;
+    // 그림자 시스템 활성화 (나무와 교량 등)
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
@@ -1096,6 +1099,17 @@
 
     const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.4);
     sunLight.position.set(650, 580, 480);
+    // 그림자 투영 설정
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 3000;
+    sunLight.shadow.camera.left = -800;
+    sunLight.shadow.camera.right = 800;
+    sunLight.shadow.camera.top = 800;
+    sunLight.shadow.camera.bottom = -800;
+    sunLight.shadow.bias = -0.0008;
     scene.add(sunLight);
 
     // ------------------------------------------------------------
@@ -1787,38 +1801,447 @@
     scene.add(terrainGroup);
 
 
-    // 양안 강변 가로수림 수목 배치 (수면에 겹치지 않고 지상에 올바르게 식재)
-    const treeTrunkGeo = new THREE.CylinderGeometry(0.35, 0.45, 3.2, 8);
-    const treeCanopyGeo = new THREE.SphereGeometry(2.6, 8, 8);
-    const matTrunk = new THREE.MeshStandardMaterial({ color: 0x4a3b32, roughness: 0.9 });
-    const matCanopy1 = new THREE.MeshStandardMaterial({ color: 0x2e6b37, roughness: 0.78 });
-    const matCanopy2 = new THREE.MeshStandardMaterial({ color: 0x3d7e46, roughness: 0.78 });
-    const matCanopyGinkgo = new THREE.MeshStandardMaterial({ color: 0x7da438, roughness: 0.8 });
-    const treeGroup = new THREE.Group();
+    // ============================================================
+    // 개선된 나무 시스템: GLB 로드 + 5종 절쉠적 폴백
+    // ============================================================
 
-    // 남단 공원 가로수
-    for (let x = -1400; x <= 1800; x += 36) {
-      [-20, 20].forEach((oz, idx) => {
-        const trunk = new THREE.Mesh(treeTrunkGeo, matTrunk);
-        trunk.position.set(x + (idx * 12), 4.5 + 1.6, 535 + oz);
-        const canopy = new THREE.Mesh(treeCanopyGeo, (x + idx) % 2 === 0 ? matCanopy1 : matCanopy2);
-        canopy.position.set(x + (idx * 12), 4.5 + 3.9, 535 + oz);
-        treeGroup.add(trunk);
-        treeGroup.add(canopy);
-      });
+    // 절쉠적 나무 생성기 (5종)
+    const matTrunkA = new THREE.MeshStandardMaterial({ color: 0x4a3028, roughness: 0.92 });
+    const matTrunkB = new THREE.MeshStandardMaterial({ color: 0x5c3818, roughness: 0.88 });
+    const matOak    = new THREE.MeshStandardMaterial({ color: 0x2a5a30, roughness: 0.78 });
+    const matOak2   = new THREE.MeshStandardMaterial({ color: 0x3d7a42, roughness: 0.76 });
+    const matPine   = new THREE.MeshStandardMaterial({ color: 0x1e4a22, roughness: 0.75 });
+    const matGinkgo = new THREE.MeshStandardMaterial({ color: 0x8db530, roughness: 0.78 });
+    const matCherry = new THREE.MeshStandardMaterial({ color: 0xf4b0c0, roughness: 0.82 });
+    const matMaple  = new THREE.MeshStandardMaterial({ color: 0xe8842a, roughness: 0.78 });
+    const matMaple2 = new THREE.MeshStandardMaterial({ color: 0xd44a1a, roughness: 0.78 });
+    const matBush   = new THREE.MeshStandardMaterial({ color: 0x1e5e28, roughness: 0.85 });
+
+    function makeProcTree(type, scale) {
+      const g = new THREE.Group();
+      scale = scale || 1.0;
+      switch (type % 5) {
+        case 0: { // 참나무 (Oak) - 넓은 구형 수관
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 3.8, 8), matTrunkA);
+          tr.position.y = 1.9; tr.castShadow = true; g.add(tr);
+          const c = new THREE.Mesh(new THREE.SphereGeometry(2.9, 10, 10), matOak);
+          c.position.y = 5.5; c.scale.set(1, 0.82, 1); c.castShadow = true; c.receiveShadow = true; g.add(c);
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2;
+            const s = new THREE.Mesh(new THREE.SphereGeometry(1.65, 8, 8), i % 2 === 0 ? matOak : matOak2);
+            s.position.set(Math.cos(a) * 1.9, 4.0 + Math.random() * 1.5, Math.sin(a) * 1.9);
+            s.castShadow = true; g.add(s);
+          }
+          break;
+        }
+        case 1: { // 소나무 (Korean Red Pine) - 다단 원듿
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.35, 4.5, 8),
+            new THREE.MeshStandardMaterial({ color: 0x8b3a20, roughness: 0.88 }));
+          tr.position.y = 2.25; tr.castShadow = true; g.add(tr);
+          [[3.2, 2.0, 4.5], [2.3, 1.7, 6.2], [1.5, 1.3, 7.7]].forEach(([r, h, y]) => {
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10), matPine);
+            cone.position.y = y; cone.castShadow = true; cone.receiveShadow = true; g.add(cone);
+          });
+          break;
+        }
+        case 2: { // 은행나무 (Ginkgo) - 원통형 수관
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.38, 5.0, 8), matTrunkB);
+          tr.position.y = 2.5; tr.castShadow = true; g.add(tr);
+          const cyl = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.0, 5.0, 10), matGinkgo);
+          cyl.position.y = 7.5; cyl.castShadow = true; cyl.receiveShadow = true; g.add(cyl);
+          const top = new THREE.Mesh(new THREE.SphereGeometry(1.55, 8, 8), matGinkgo);
+          top.scale.y = 0.7; top.position.y = 10.3; top.castShadow = true; g.add(top);
+          break;
+        }
+        case 3: { // 볚꽃나무 (Cherry Blossom)
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.30, 3.2, 8),
+            new THREE.MeshStandardMaterial({ color: 0x5c3a28, roughness: 0.85 }));
+          tr.position.y = 1.6; tr.castShadow = true; g.add(tr);
+          const main = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 10), matCherry);
+          main.position.y = 5.0; main.scale.set(1.2, 0.75, 1.2); main.castShadow = true; g.add(main);
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            const b = new THREE.Mesh(new THREE.SphereGeometry(1.45, 8, 8), matCherry);
+            b.position.set(Math.cos(a) * 2.0, 3.8 + Math.random() * 1.2, Math.sin(a) * 2.0);
+            b.castShadow = true; g.add(b);
+          }
+          break;
+        }
+        case 4: { // 단풍나무 (Maple)
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.32, 3.5, 8), matTrunkA);
+          tr.position.y = 1.75; tr.castShadow = true; g.add(tr);
+          const main = new THREE.Mesh(new THREE.SphereGeometry(2.25, 10, 10), matMaple);
+          main.position.y = 5.0; main.castShadow = true; g.add(main);
+          for (let i = 0; i < 4; i++) {
+            const a = (i / 4) * Math.PI * 2 + 0.4;
+            const s = new THREE.Mesh(new THREE.SphereGeometry(1.35, 8, 8), i % 2 === 0 ? matMaple : matMaple2);
+            s.position.set(Math.cos(a) * 1.6, 4.0 + Math.random(), Math.sin(a) * 1.6);
+            s.castShadow = true; g.add(s);
+          }
+          break;
+        }
+      }
+      g.scale.setScalar(scale);
+      return g;
     }
-    // 북단 공원 가로수
-    for (let x = -1400; x <= 1800; x += 40) {
-      [-15, 15].forEach((oz, idx) => {
-        const trunk = new THREE.Mesh(treeTrunkGeo, matTrunk);
-        trunk.position.set(x + (idx * 14), 4.5 + 1.6, -525 + oz);
-        const canopy = new THREE.Mesh(treeCanopyGeo, (x + idx) % 2 === 0 ? matCanopy1 : matCanopyGinkgo);
-        canopy.position.set(x + (idx * 14), 4.5 + 3.9, -525 + oz);
-        treeGroup.add(trunk);
-        treeGroup.add(canopy);
+
+    function makeBush(scale) {
+      const g = new THREE.Group();
+      scale = scale || 1.0;
+      [0, 0.7, 1.4, 2.1].forEach((a, i) => {
+        const s = new THREE.Mesh(new THREE.SphereGeometry(0.85 + i * 0.12, 7, 7), matBush);
+        s.position.set(Math.cos(a * 1.8) * 0.5, 0.7, Math.sin(a * 1.8) * 0.5);
+        s.castShadow = true; g.add(s);
       });
+      g.scale.setScalar(scale);
+      return g;
     }
+
+    const treeGroup = new THREE.Group();
+    const treePositions = []; // GLB 로드 성공 시 교체용
+
+    // 나무 배치 데이터 생성 (rng 시드 고정으로 일관성 유지)
+    const rng = (seed => () => { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return ((seed >>> 0) / 0xffffffff); })(12345);
+
+    // 남단 한강공원 나무들 (여러 종류 혼합)
+    for (let x = -1400; x <= 1800; x += 32) {
+      const row1Z = 522 + rng() * 28 - 14;
+      const row2Z = 550 + rng() * 22 - 11;
+      // 앎줄: 주로 벳꽃나무와 은행나무
+      const tType1 = rng() > 0.4 ? 3 : 2; // 60% cherry, 40% ginkgo
+      const scale1 = 0.65 + rng() * 0.4;
+      const t1 = makeProcTree(tType1, scale1);
+      t1.position.set(x + rng() * 10 - 5, 4.5, row1Z);
+      t1.rotation.y = rng() * Math.PI * 2;
+      treeGroup.add(t1);
+      treePositions.push({ pos: t1.position.clone(), type: tType1, scale: scale1 });
+
+      // 뒷줄: 주로 참나무와 단풍나무
+      if (rng() > 0.35) {
+        const tType2 = rng() > 0.5 ? 0 : 4; // oak or maple
+        const scale2 = 0.7 + rng() * 0.45;
+        const t2 = makeProcTree(tType2, scale2);
+        t2.position.set(x + rng() * 8 - 4, 4.5, row2Z);
+        t2.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t2);
+      }
+
+      // 들뚩저리 덕불 (10m 간격)
+      if (Math.round(x / 32) % 3 === 0) {
+        const bush = makeBush(0.5 + rng() * 0.4);
+        bush.position.set(x + 15 + rng() * 12, 4.5, 508 + rng() * 18);
+        treeGroup.add(bush);
+      }
+    }
+
+    // 북단 한강공원 나무들
+    for (let x = -1400; x <= 1800; x += 35) {
+      const row1Z = -522 - rng() * 26 + 13;
+      const row2Z = -548 - rng() * 20 + 10;
+      // 소나무와 참나무 혼합 (서울 북식 한강공원 특유)
+      const tType1 = [1, 1, 3, 0, 2][Math.floor(rng() * 5)];
+      const scale1 = 0.6 + rng() * 0.45;
+      const t1 = makeProcTree(tType1, scale1);
+      t1.position.set(x + rng() * 10 - 5, 4.5, row1Z);
+      t1.rotation.y = rng() * Math.PI * 2;
+      treeGroup.add(t1);
+
+      if (rng() > 0.3) {
+        const tType2 = rng() > 0.5 ? 1 : 4;
+        const t2 = makeProcTree(tType2, 0.65 + rng() * 0.4);
+        t2.position.set(x + rng() * 8 - 4, 4.5, row2Z);
+        t2.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t2);
+      }
+
+      if (Math.round(x / 35) % 3 === 0) {
+        const bush = makeBush(0.45 + rng() * 0.35);
+        bush.position.set(x + 16 + rng() * 10, 4.5, -508 - rng() * 16);
+        treeGroup.add(bush);
+      }
+    }
+
+    // 압물 단 군락 식재 (River bank clusters)
+    for (let x = -1200; x <= 1600; x += 90) {
+      const clusterSZ = 465 + rng() * 15;
+      const clusterNZ = -462 - rng() * 15;
+      for (let c = 0; c < 3; c++) {
+        const tS = makeProcTree(rng() > 0.5 ? 3 : 0, 0.5 + rng() * 0.35);
+        tS.position.set(x + (c - 1) * 16 + rng() * 8, 4.5, clusterSZ);
+        tS.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(tS);
+        const tN = makeProcTree(rng() > 0.5 ? 1 : 2, 0.5 + rng() * 0.35);
+        tN.position.set(x + (c - 1) * 16 + rng() * 8, 4.5, clusterNZ);
+        tN.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(tN);
+      }
+    }
+
     scene.add(treeGroup);
+
+    // GLB 나무 로드 시도 (CORS 안전 + 폴백 지원)
+    const glbLoader = new GLTFLoader();
+    const treeGLBUrls = [
+      "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/tree-spruce/model.gltf",
+      "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/tree-lime/model.gltf"
+    ];
+
+    const loadedGLBTrees = [];
+    let glbLoadAttempts = 0;
+    treeGLBUrls.forEach((url, idx) => {
+      glbLoader.load(url, (gltf) => {
+        const model = gltf.scene;
+        model.traverse(obj => {
+          if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+        });
+        // 스케일 조정 (Quaternius 모델은 크기가 작음)
+        const targetH = 6.5 + idx * 2.0;
+        const box = new THREE.Box3().setFromObject(model);
+        const h = box.max.y - box.min.y;
+        if (h > 0) model.scale.setScalar(targetH / h);
+        loadedGLBTrees[idx] = model;
+        glbLoadAttempts++;
+
+        // 둘 다 로드되면 일부 나무를 GLB로 교체
+        if (glbLoadAttempts >= 2) {
+          const glbGroup = new THREE.Group();
+          for (let x = -1200; x <= 1600; x += 120) {
+            [-1, 1].forEach(side => {
+              const zi = side < 0 ? -535 : 535;
+              const glbIdx = Math.floor(rng() * loadedGLBTrees.length);
+              const src = loadedGLBTrees.find((m) => m !== undefined);
+              if (!src) return;
+              const clone = src.clone();
+              clone.position.set(x + rng() * 20 - 10, 4.5, zi + rng() * 20 - 10);
+              clone.rotation.y = rng() * Math.PI * 2;
+              const sc = 0.7 + rng() * 0.5;
+              clone.scale.multiplyScalar(sc);
+              glbGroup.add(clone);
+            });
+          }
+          scene.add(glbGroup);
+        }
+      }, undefined, () => {
+        // GLB 로드 실패 시 좋은 절쉠적 트리가 이미 배치되어 있음
+        console.log('GLB tree load failed, using procedural trees');
+      });
+    });
+
+    // ============================================================
+    // 사실감 향상: 강변 바위/돌 평상 매트리얼
+    // ============================================================
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x6a7280, roughness: 0.88, metalness: 0.05 });
+    const rockGroup = new THREE.Group();
+    for (let i = 0; i < 160; i++) {
+      const rockX = (rng() - 0.5) * 3200;
+      const side = rng() > 0.5 ? 1 : -1;
+      const rockZ = side * (445 + rng() * 30);
+      const rx = 0.4 + rng() * 1.8;
+      const ry = 0.25 + rng() * 0.85;
+      const rz = 0.3 + rng() * 1.4;
+      const rock = new THREE.Mesh(
+        new THREE.DodecahedronGeometry(1.0, 0),
+        rockMat
+      );
+      rock.scale.set(rx, ry, rz);
+      rock.position.set(rockX, 4.48 + ry * 0.5, rockZ);
+      rock.rotation.set(rng() * Math.PI, rng() * Math.PI, rng() * Math.PI);
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      rockGroup.add(rock);
+    }
+    scene.add(rockGroup);
+
+    // ============================================================
+    // 사실감 향상: 도로 위 이동 차량
+    // ============================================================
+    const vehicleGroup = new THREE.Group();
+    const vehicles = [];
+
+    function makeVehicle(type) {
+      const v = new THREE.Group();
+      const colors = [0xcc2222, 0x2244bb, 0x228833, 0xcccc22, 0x888888, 0x222244, 0xcc6622];
+      const col = colors[Math.floor(rng() * colors.length)];
+      const bodyMat = new THREE.MeshStandardMaterial({ color: col, metalness: 0.65, roughness: 0.38 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x99ccee, transparent: true, opacity: 0.75, roughness: 0.1, metalness: 0.4 });
+      const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85 });
+      const chromeMat = new THREE.MeshStandardMaterial({ color: 0xccddee, metalness: 0.9, roughness: 0.15 });
+
+      if (type === 'car') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.62, 4.2), bodyMat);
+        body.position.y = 0.55; body.castShadow = true; v.add(body);
+        const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.55, 2.35), bodyMat);
+        cabin.position.set(0, 1.06, -0.28); v.add(cabin);
+        const ws = new THREE.Mesh(new THREE.PlaneGeometry(1.62, 0.44), glassMat);
+        ws.position.set(0, 1.05, 0.88); ws.rotation.x = -0.18; v.add(ws);
+        const rw = ws.clone();
+        rw.position.set(0, 1.05, -1.43); rw.rotation.x = 0.18; v.add(rw);
+        [-1.0, 1.0].forEach(wx => {
+          [-1.35, 1.32].forEach(wz => {
+            const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.22, 12), wheelMat);
+            wheel.rotation.z = Math.PI / 2; wheel.position.set(wx, 0.32, wz);
+            v.add(wheel);
+            const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.24, 8), chromeMat);
+            hub.rotation.z = Math.PI / 2; hub.position.set(wx, 0.32, wz); v.add(hub);
+          });
+        });
+        // 헤드라이트 포인트
+        const hl = new THREE.PointLight(0xfff8e8, 0.8, 20);
+        hl.position.set(0, 0.65, 2.2); v.add(hl);
+      } else { // 트럭/버스
+        const truck = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.8, 7.5),
+          new THREE.MeshStandardMaterial({ color: 0xddddcc, metalness: 0.3, roughness: 0.6 }));
+        truck.position.y = 1.15; truck.castShadow = true; v.add(truck);
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.0, 2.2), bodyMat);
+        cab.position.set(0, 1.25, 4.5); cab.castShadow = true; v.add(cab);
+        [-1.15, 1.15].forEach(wx => {
+          [-2.5, 0.2, 2.8].forEach(wz => {
+            const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.28, 12), wheelMat);
+            wheel.rotation.z = Math.PI / 2; wheel.position.set(wx, 0.5, wz); v.add(wheel);
+          });
+        });
+      }
+      return v;
+    }
+
+    // 남단 올림픽대로 (동서 방향, Z=635)
+    const southLaneZ = 635;
+    const northLaneZ = -615;
+    for (let i = 0; i < 18; i++) {
+      const type = rng() > 0.75 ? 'truck' : 'car';
+      const v = makeVehicle(type);
+      const startX = -1500 + rng() * 3200;
+      v.position.set(startX, 4.55, southLaneZ + (rng() - 0.5) * 22);
+      v.rotation.y = Math.PI / 2; // 동쪽 진행
+      vehicleGroup.add(v);
+      vehicles.push({ mesh: v, speed: 18 + rng() * 22, dir: 1, laneZ: southLaneZ + (rng() > 0.5 ? -10 : 8), type });
+    }
+    // 북단 강변북로
+    for (let i = 0; i < 16; i++) {
+      const type = rng() > 0.7 ? 'truck' : 'car';
+      const v = makeVehicle(type);
+      const startX = -1500 + rng() * 3200;
+      v.position.set(startX, 4.55, northLaneZ + (rng() - 0.5) * 22);
+      v.rotation.y = -Math.PI / 2; // 서쪽 진행
+      vehicleGroup.add(v);
+      vehicles.push({ mesh: v, speed: 16 + rng() * 24, dir: -1, laneZ: northLaneZ + (rng() > 0.5 ? -8 : 10), type });
+    }
+    scene.add(vehicleGroup);
+    window._vehicles = vehicles;
+
+    // ============================================================
+    // 사실감 향상: 한강 위 유람선 & 모터보트
+    // ============================================================
+    const boatGroup = new THREE.Group();
+
+    function makeFerry() {
+      const f = new THREE.Group();
+      const hullMat = new THREE.MeshStandardMaterial({ color: 0xf0f0e8, metalness: 0.3, roughness: 0.5 });
+      const accentMat = new THREE.MeshStandardMaterial({ color: 0x1155aa, metalness: 0.4, roughness: 0.45 });
+      const stackMat = new THREE.MeshStandardMaterial({ color: 0xdd2222, roughness: 0.6 });
+
+      // 선체 (hull)
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1.8, 22), hullMat);
+      hull.position.y = 0.9; hull.castShadow = true; f.add(hull);
+      // 선수랩 라인 (water line)
+      const waterLine = new THREE.Mesh(new THREE.BoxGeometry(8.7, 0.28, 22.2), accentMat);
+      waterLine.position.y = 0.0; f.add(waterLine);
+      // 갑판최 (deck house)
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(7.5, 1.5, 18), hullMat);
+      deck.position.y = 2.55; deck.castShadow = true; f.add(deck);
+      // 상부 걑판최
+      const upper = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.4, 14), accentMat);
+      upper.position.y = 4.2; f.add(upper);
+      // 연돌 (smokestacks)
+      [-1.5, 1.5].forEach(sx => {
+        const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 2.8, 8), stackMat);
+        stack.position.set(sx, 6.0, -3); f.add(stack);
+      });
+      // 조타실 (bridge)
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(4.5, 1.2, 4), hullMat);
+      bridge.position.set(0, 5.5, 4); f.add(bridge);
+      // 레이더 마스트
+      const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.5, 6),
+        new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.3 }));
+      mast.position.set(0, 8.5, 4); f.add(mast);
+      return f;
+    }
+
+    function makeMotorboat() {
+      const b = new THREE.Group();
+      const col = [0xee4422, 0x2244cc, 0x228822][Math.floor(rng() * 3)];
+      const hullMat = new THREE.MeshStandardMaterial({ color: col, metalness: 0.5, roughness: 0.4 });
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.8, 6.0), hullMat);
+      hull.position.y = 0.4; b.add(hull);
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(1.2, 2.0, 4), hullMat);
+      nose.rotation.x = -Math.PI / 2; nose.rotation.z = Math.PI / 4;
+      nose.position.set(0, 0.5, 3.8); b.add(nose);
+      const cockpit = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.55, 2.8), hullMat);
+      cockpit.position.set(0, 1.0, -0.5); b.add(cockpit);
+      return b;
+    }
+
+    // 유람선 (main ferry, 동쪽 진행)
+    const ferry = makeFerry();
+    ferry.position.set(-800, 0.5, -120);
+    ferry.rotation.y = Math.PI / 2;
+    boatGroup.add(ferry);
+    window._ferry = { mesh: ferry, speed: 4.5, dir: 1, startX: -1400, endX: 1600, posX: -800 };
+
+    // 모터보트 3쳊 (공원단에 항출)
+    for (let i = 0; i < 3; i++) {
+      const mb = makeMotorboat();
+      mb.position.set(-500 + i * 420, 0.4, -60 + (rng() - 0.5) * 180);
+      mb.rotation.y = rng() * Math.PI * 2;
+      boatGroup.add(mb);
+      window[`_mboat${i}`] = { mesh: mb, speed: 5 + rng() * 6, dirX: rng() > 0.5 ? 1 : -1, posX: -500 + i * 420 };
+    }
+    scene.add(boatGroup);
+
+    // ============================================================
+    // 사실감 향상: 가로등 (Street lamps with PointLights)
+    // ============================================================
+    const lampGroup = new THREE.Group();
+    const lampPostMat = new THREE.MeshStandardMaterial({ color: 0x3d4248, roughness: 0.5, metalness: 0.7 });
+    const lampGlowMat = new THREE.MeshBasicMaterial({ color: 0xfff8e0 });
+
+    const lampPositions = [
+      // 남단 올림픽대로율 가로등 (Z=608)
+      ...Array.from({ length: 40 }, (_, i) => ({ x: -1400 + i * 80, z: 608, side: 1 })),
+      // 북단 강변북로율 가로등 (Z=-592)
+      ...Array.from({ length: 40 }, (_, i) => ({ x: -1400 + i * 80, z: -592, side: -1 })),
+    ];
+
+    lampPositions.forEach(({ x, z, side }) => {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 7.5, 8), lampPostMat);
+      pole.position.set(x, 4.5 + 3.75, z);
+      lampGroup.add(pole);
+
+      // 크리스맨 트리형 업은 암
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 3.2, 6), lampPostMat);
+      arm.rotation.z = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+      arm.position.set(x + side * 1.6, 4.5 + 7.2, z);
+      lampGroup.add(arm);
+
+      // 등기구 (luminaire)
+      const head = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.28, 0.5), lampPostMat);
+      head.position.set(x + side * 3.2, 4.5 + 7.2, z);
+      lampGroup.add(head);
+
+      const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.88, 0.24), lampGlowMat);
+      glow.rotation.x = Math.PI / 2;
+      glow.position.set(x + side * 3.2, 4.5 + 7.06, z);
+      lampGroup.add(glow);
+
+      // PointLight (야간에만 켜지는 로직은 applyEnv에서 처리)
+      const pl = new THREE.PointLight(0xfff0cc, 0.0, 28);
+      pl.position.set(x + side * 3.2, 4.5 + 6.8, z);
+      pl.castShadow = false; // 성능상 배제
+      lampGroup.add(pl);
+    });
+
+    scene.add(lampGroup);
+    window._lampGroup = lampGroup;
 
     // ------------------------------------------------------------
     // 8. 언리얼급 한국 고층 아파트 대단지 (잠실 엘스/리센츠/장미 스타일)
@@ -3248,6 +3671,31 @@
       document.querySelectorAll(".env-btn[data-weather]").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.weather === currentWeatherPreset);
       });
+
+      // 가로등 야간 자동 점등 (저녁/밤 시간대)
+      const isNight = (currentTimePreset === "night" || currentTimePreset === "sunset");
+      if (window._lampGroup) {
+        window._lampGroup.traverse(obj => {
+          if (obj.isPointLight) {
+            obj.intensity = isNight ? (currentTimePreset === "night" ? 2.2 : 0.8) : 0.0;
+          }
+          // 발광 평면 (글로우 패널) 밝기
+          if (obj.isMesh && obj.material && obj.material.color && obj.material.color.getHex() === 0xfff8e0) {
+            obj.visible = isNight;
+          }
+        });
+      }
+
+      // 차량 헤드라이트 야간 제어
+      if (window._vehicles) {
+        window._vehicles.forEach(v => {
+          v.mesh.traverse(obj => {
+            if (obj.isPointLight) {
+              obj.intensity = isNight ? 1.8 : 0.0;
+            }
+          });
+        });
+      }
     }
 
     function setTime(preset) {
@@ -3737,6 +4185,51 @@
 
       processMobileInput(dt);
       updatePhysics(dt);
+
+      // 차량 이동 애니메이션 (동서 왕복)
+      if (window._vehicles) {
+        window._vehicles.forEach(v => {
+          v.mesh.position.x += v.dir * v.speed * dt;
+          // 화면 끝 도달 시 반대편 재배치
+          if (v.dir > 0 && v.mesh.position.x > 1600) v.mesh.position.x = -1500;
+          if (v.dir < 0 && v.mesh.position.x < -1500) v.mesh.position.x = 1600;
+          v.mesh.position.z = v.laneZ;
+          // 바퀴 회전 (자동차만)
+          if (v.type === 'car') {
+            v.mesh.children.forEach(c => {
+              if (c.geometry && c.geometry.type === 'CylinderGeometry') {
+                c.rotation.x += v.dir * v.speed * dt * 0.8;
+              }
+            });
+          }
+        });
+      }
+
+      // 유람선 이동
+      if (window._ferry) {
+        const fe = window._ferry;
+        fe.posX += fe.dir * fe.speed * dt;
+        if (fe.posX > fe.endX) { fe.posX = fe.endX; fe.dir = -1; fe.mesh.rotation.y = -Math.PI / 2; }
+        if (fe.posX < fe.startX) { fe.posX = fe.startX; fe.dir = 1; fe.mesh.rotation.y = Math.PI / 2; }
+        fe.mesh.position.x = fe.posX;
+        // 물결에 맞춰 미세 롤링
+        fe.mesh.rotation.z = Math.sin(time * 0.4) * 0.012;
+        fe.mesh.position.y = 0.5 + Math.sin(time * 0.6) * 0.18;
+      }
+
+      // 모터보트 이동
+      for (let i = 0; i < 3; i++) {
+        const mb = window[`_mboat${i}`];
+        if (mb) {
+          mb.posX += mb.dirX * mb.speed * dt;
+          if (mb.posX > 1500) { mb.posX = 1500; mb.dirX = -1; mb.mesh.rotation.y = Math.PI; }
+          if (mb.posX < -1400) { mb.posX = -1400; mb.dirX = 1; mb.mesh.rotation.y = 0; }
+          mb.mesh.position.x = mb.posX;
+          mb.mesh.position.y = 0.4 + Math.sin(time * 0.8 + i) * 0.12;
+          mb.mesh.rotation.z = Math.sin(time * 1.2 + i) * 0.04;
+        }
+      }
+
       composer.render();
     }
     applyEnv();   // 초기 환경 설정 (아침 맑음)

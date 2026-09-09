@@ -1,0 +1,2881 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Han River Line | 한강선 (DEBUG)</title>
+  <style>
+    :root {
+      --ui-green: #22c55e;
+      --line2-green: #00a84d;
+      --bg-glass: rgba(14, 23, 34, 0.88);
+      --border-glass: rgba(255, 255, 255, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #89a7c6;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif;
+      color: white;
+      user-select: none;
+    }
+
+    canvas#stage {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+
+    canvas#stage:active {
+      cursor: grabbing;
+    }
+
+    /* 상단 좌측: 노선 및 역 명칭 카드 (스크린샷 100% 일치) */
+    #card-station {
+      position: fixed;
+      top: 18px;
+      left: 20px;
+      z-index: 25;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(16px);
+      border-radius: 12px;
+      padding: 10px 18px 11px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.4);
+    }
+
+    .line-badge-box {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: var(--line2-green);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 900;
+      box-shadow: 0 0 12px rgba(0, 168, 77, 0.5);
+    }
+
+    .station-title-text {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+
+    .station-subtitle-text {
+      font-size: 10px;
+      color: #94a3b8;
+      letter-spacing: 0.8px;
+      margin-top: 2px;
+    }
+
+    /* 운행 과제 카드 */
+    #card-mission {
+      position: fixed;
+      top: 92px;
+      left: 20px;
+      z-index: 25;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(16px);
+      border-radius: 12px;
+      padding: 11px 16px;
+      width: 210px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
+
+    .mission-tag {
+      font-size: 10px;
+      color: var(--ui-green);
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .mission-headline {
+      font-size: 14px;
+      font-weight: 800;
+      color: #f8fafc;
+      margin-bottom: 2px;
+    }
+
+    .mission-detail {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    /* 상단 중앙: 시점 안내 프롬프트 */
+    #top-guidance {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      background: rgba(12, 19, 29, 0.84);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(14px);
+      border-radius: 8px;
+      padding: 7px 22px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #e2e8f0;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      white-space: nowrap;
+    }
+
+    /* 상단 우측: 시각 & 날씨 카드 (인터랙티브 토글 가능) */
+    #card-time {
+      position: fixed;
+      top: 18px;
+      right: 20px;
+      z-index: 25;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(16px);
+      border-radius: 10px;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 13px;
+      font-weight: 700;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+    #card-time:hover {
+      background: rgba(30, 41, 59, 0.85);
+      border-color: rgba(56, 189, 248, 0.5);
+      transform: translateY(-1px);
+    }
+
+    /* 시간대 & 날씨 제어 툴바 */
+    #env-control-bar {
+      position: fixed;
+      top: 64px;
+      right: 20px;
+      z-index: 25;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(16px);
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      user-select: none;
+      transition: all 0.25s ease;
+    }
+    .env-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .env-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #94a3b8;
+      width: 32px;
+    }
+    .env-btn {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #cbd5e1;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      white-space: nowrap;
+    }
+    .env-btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    .env-btn.active {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+    }
+
+    /* 정차 위치 HUD (스크린샷 4 일치) */
+    #card-align-hud {
+      position: fixed;
+      top: 154px;
+      right: 20px;
+      z-index: 25;
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(16px);
+      border-radius: 12px;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      transition: opacity 0.3s;
+    }
+
+    .align-dist-text {
+      font-size: 20px;
+      font-weight: 900;
+      font-family: "SF Mono", monospace;
+      color: #fff;
+    }
+
+    .align-target-bar {
+      width: 14px;
+      height: 38px;
+      border: 2px solid #334155;
+      border-radius: 4px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .align-target-line {
+      position: absolute;
+      width: 100%;
+      height: 2px;
+      background: var(--ui-green);
+    }
+
+    .align-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ui-green);
+      box-shadow: 0 0 8px var(--ui-green);
+    }
+
+    /* 하단 조작 안내 프롬프트 */
+    #action-hint {
+      position: fixed;
+      bottom: 118px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      background: rgba(10, 16, 26, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(14px);
+      border-radius: 8px;
+      padding: 7px 22px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #cbd5e1;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+      letter-spacing: 0.5px;
+      display: none;
+    }
+
+    /* 승객 시점 전용 하단 미니 푸터 (스크린샷 1 & 4 완벽 일치) */
+    #passenger-footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 25;
+      padding: 12px 28px;
+      background: linear-gradient(to top, rgba(8, 12, 18, 0.92) 0%, transparent 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .footer-left {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .footer-cam-btn {
+      cursor: pointer;
+      padding: 3px 8px;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+
+    .footer-cam-btn:hover {
+      color: #38bdf8;
+    }
+
+    .footer-cam-btn.active {
+      color: #38bdf8;
+      font-weight: 800;
+      background: rgba(56, 189, 248, 0.15);
+    }
+
+    /* 외부/운전 모드 전용 풀 대시보드 (스크린샷 2 & 3 일치) */
+    #bottom-dash {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 25;
+      background: linear-gradient(to top, rgba(6, 10, 16, 0.96) 80%, rgba(12, 18, 28, 0.88) 100%);
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(20px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 10px 32px 7px;
+      box-shadow: 0 -12px 36px rgba(0,0,0,0.65);
+    }
+
+    .dash-metrics-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .col-metric {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .m-lbl {
+      font-size: 10px;
+      color: #718096;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .m-val-big {
+      font-size: 26px;
+      font-weight: 900;
+      font-family: "SF Mono", monospace;
+      color: #ffffff;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .m-val-big .unit {
+      font-size: 11px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .m-val-green {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ui-green);
+    }
+
+    .m-val-white {
+      font-size: 15px;
+      font-weight: 800;
+      color: #f1f5f9;
+    }
+
+    .notch-led-bar {
+      display: flex;
+      gap: 3px;
+      align-items: center;
+      height: 22px;
+    }
+
+    .notch-seg {
+      width: 6px;
+      height: 20px;
+      background: #1e293b;
+      border-radius: 2px;
+    }
+
+    .notch-seg.active-pwr {
+      background: var(--ui-green);
+      box-shadow: 0 0 8px var(--ui-green);
+    }
+
+    .notch-seg.active-brk {
+      background: #f59e0b;
+      box-shadow: 0 0 8px #f59e0b;
+    }
+
+    .dash-footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #64748b;
+      padding-top: 4px;
+    }
+
+    /* 시작 인트로 모달 */
+    #intro {
+      display: none;
+    }
+
+    #intro-card {
+      width: min(520px, 90vw);
+      background: rgba(15, 22, 33, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 24px;
+      padding: 34px 30px;
+      text-align: center;
+      box-shadow: 0 28px 70px rgba(0,0,0,0.85);
+    }
+
+    #start {
+      margin-top: 16px;
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 15px;
+      background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+      color: white;
+      font-weight: 800;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(34, 197, 94, 0.4);
+      transition: all 0.2s ease;
+    }
+
+    #start:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(34, 197, 94, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+
+  <!-- 상단 좌측: 역 명칭 카드 -->
+  <div id="card-station">
+    <div class="line-badge-box" id="line-badge-num">2</div>
+    <div>
+      <div class="station-title-text" id="route-name-title">강변 → 잠실나루</div>
+      <div class="station-subtitle-text" id="route-mode-sub">HAN RIVER LINE / 승객 · 자동 운전</div>
+    </div>
+  </div>
+
+  <!-- 운행 과제 카드 -->
+  <div id="card-mission">
+    <div class="mission-tag">운행 과제</div>
+    <div class="mission-headline" id="mission-headline-text">자동 운전으로 이동 중</div>
+    <div class="mission-detail">제한 속도 70 km/h · 10량 정차</div>
+  </div>
+
+  <!-- 상단 중앙: 시점 안내 프롬프트 -->
+  <div id="top-guidance">
+    <span id="guidance-car">3호차</span> · WASD 이동 · 우클릭 둘러보기 · V 시점 전환 · E 앉기
+  </div>
+
+  <!-- 상단 우측: 시각 & 날씨 카드 (단축키 K: 시간대, L: 날씨) -->
+  <div id="card-time" title="클릭하여 환경 패널 토글 (단축키: K 시간대, L 날씨)">
+    <span id="time-badge"><span id="time-icon">🌅</span> <span id="clock-display">07:30</span></span>
+    <span id="weather-badge" style="color:#94a3b8"><span id="weather-icon">☀️</span> <span id="weather-display">맑음</span></span>
+  </div>
+
+  <!-- 시간대 & 날씨 인터랙티브 툴바 -->
+  <div id="env-control-bar">
+    <div class="env-row">
+      <span class="env-label">시간</span>
+      <button class="env-btn active" data-time="morning" title="아침 07:30 (단축키 K)">🌅 아침</button>
+      <button class="env-btn" data-time="noon" title="낮 13:00 (단축키 K)">☀️ 낮</button>
+      <button class="env-btn" data-time="sunset" title="노을 18:45 (단축키 K)">🌇 노을</button>
+      <button class="env-btn" data-time="night" title="밤 21:30 (단축키 K)">🌙 밤</button>
+    </div>
+    <div class="env-row">
+      <span class="env-label">날씨</span>
+      <button class="env-btn active" data-weather="clear" title="맑음 (단축키 L)">☀️ 맑음</button>
+      <button class="env-btn" data-weather="cloudy" title="흐림 (단축키 L)">☁️ 흐림</button>
+      <button class="env-btn" data-weather="rain" title="비 & 빗소리 (단축키 L)">🌧️ 비</button>
+      <button class="env-btn" data-weather="fog" title="물안개 (단축키 L)">🌫️ 안개</button>
+      <button class="env-btn" data-weather="snow" title="눈 (단축키 L)">❄️ 눈</button>
+    </div>
+  </div>
+
+  <!-- 정차 위치 HUD (스크린샷 4 일치) -->
+  <div id="card-align-hud">
+    <div>
+      <div style="font-size:10px; color:#94a3b8; font-weight:700">정차 위치</div>
+      <div class="align-dist-text"><span id="align-meters">450</span> m</div>
+    </div>
+    <div class="align-target-bar">
+      <div class="align-target-line"></div>
+      <div class="align-dot" id="align-dot"></div>
+    </div>
+  </div>
+
+  <!-- 하단 액션 프롬프트 -->
+  <div id="action-hint">
+    W 가속 · S 제동 · X 타행
+  </div>
+
+  <!-- 승객 모드 전용 하단 미니 푸터 (스크린샷 1 & 4 일치) -->
+  <div id="passenger-footer">
+    <div class="footer-left">
+      <div>
+        <span class="footer-cam-btn" data-cam="1">1 직접 운전</span> ·
+        <span class="footer-cam-btn active" data-cam="2">2 승객</span> ·
+        <span class="footer-cam-btn" data-cam="3">3 외부</span> ·
+        <span class="footer-cam-btn" data-cam="4">4 선로 옆</span> ·
+        <span class="footer-cam-btn" id="btn-toggle-v" style="color:#38bdf8; font-weight:bold;">[V] 시점 전환</span>
+      </div>
+      <div style="color:#64748b">PgUp / PgDn 객차 이동</div>
+      <div style="color:#64748b">Shift 빠르게 걷기</div>
+    </div>
+    <div style="color:#64748b">
+      F1 도움말 · ESC 메뉴
+    </div>
+  </div>
+
+  <!-- 외부/운전 모드 전용 풀 대시보드 (스크린샷 2 & 3 일치) -->
+  <div id="bottom-dash" style="display:none;">
+    <div class="dash-metrics-row">
+      <div class="col-metric">
+        <span class="m-lbl">속도</span>
+        <div class="m-val-big"><span id="m-speed">60</span> <span class="unit">km/h</span></div>
+      </div>
+
+      <div class="col-metric">
+        <span class="m-lbl">주간 제어기</span>
+        <div class="m-val-green" id="m-notch">타행</div>
+        <span style="font-size:9.5px; color:#64748b">전진</span>
+      </div>
+
+      <div class="notch-led-bar" id="notch-leds">
+        <div class="notch-seg"></div>
+        <div class="notch-seg"></div>
+        <div class="notch-seg"></div>
+        <div class="notch-seg"></div>
+        <div class="notch-seg active-pwr"></div>
+        <div class="notch-seg"></div>
+        <div class="notch-seg"></div>
+        <div class="notch-seg"></div>
+        <div class="notch-seg"></div>
+        <div class="notch-seg"></div>
+      </div>
+
+      <div class="col-metric">
+        <span class="m-lbl">출입문</span>
+        <div class="m-val-green" id="m-door">닫힘</div>
+        <span style="font-size:9.5px; color:#64748b">T 문 조작</span>
+      </div>
+
+      <div class="col-metric">
+        <span class="m-lbl">다음 정차</span>
+        <div class="m-val-white" id="m-next-station">잠실나루</div>
+      </div>
+
+      <div class="col-metric">
+        <span class="m-lbl">남은 거리</span>
+        <div class="m-val-big"><span id="m-distance">752</span> <span class="unit">m</span></div>
+      </div>
+
+      <div class="col-metric">
+        <span class="m-lbl">제동 실린더</span>
+        <div class="m-val-white"><span id="m-pressure">0.0</span> <span class="unit">bar</span></div>
+      </div>
+
+      <div class="col-metric">
+        <span class="m-lbl">노선 진행</span>
+        <div class="m-val-green"><span id="m-progress">58</span> %</div>
+      </div>
+    </div>
+
+    <div class="dash-footer-row">
+      <div style="font-size:11px; color:#64748b;">
+        W 가속/제어기 · X 타행 · T 문 · SPACE 비상제동 · 1 운전 · 2 승객 · 3 외부 · 4 선로 옆 · V 시점 전환 · 우클릭 둘러보기
+      </div>
+      <div style="font-size:11px; color:#64748b;">
+        F1 도움말 · ESC 메뉴
+      </div>
+    </div>
+  </div>
+
+  <!-- 시작 인트로 모달 -->
+  <div id="intro">
+    <div id="intro-card">
+      <div style="font-size:12px; font-weight:800; color:var(--ui-green); letter-spacing:1px; margin-bottom:8px;">HAN RIVER LINE · 한강선</div>
+      <h1 style="margin:0 0 12px; font-size:24px; font-weight:900;">한강 잠실철교 3D 시뮬레이션</h1>
+      <p style="font-size:13.5px; line-height:1.6; color:#94a3b8; margin:0 0 18px;">
+        언리얼 엔진급 그래픽으로 재탄생한 서울 지하철 2호선 한강 횡단 시뮬레이션입니다.<br />
+        <strong>WASD 키로 자유롭게 객실을 걸어 다니며</strong>, <strong>V 키로 외부/선로변 시점을 전환</strong>할 수 있습니다.
+      </p>
+      <button id="start">열차 탑승 및 시뮬레이션 시작</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+    import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+    import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+
+    // ------------------------------------------------------------
+    // 1. 실제 녹음 사운드 시스템 (가속/감속 오실로스코프 및 인버터 변조음 완전 삭제)
+    // ------------------------------------------------------------
+    class SubwayAudio {
+      constructor() {
+        this.realRunAudio = null;
+        this.realRainAudio = null;
+        this.initDone = false;
+        this.isRaining = false;
+      }
+      init() {
+        if (this.initDone) return;
+        try {
+          // 순수 실제 철도 레일 주행음만 사용
+          this.realRunAudio = new Audio("sounds/real_train_run.mp3");
+          this.realRunAudio.loop = true;
+          this.realRunAudio.volume = 0.0;
+          this.realRunAudio.play().then(() => { this.initDone = true; }).catch(() => {});
+
+          this.realRainAudio = new Audio("sounds/real_rain.mp3");
+          this.realRainAudio.loop = true;
+          this.realRainAudio.volume = 0.0;
+          this.realRainAudio.play().catch(() => {});
+        } catch (_) {}
+      }
+      setRain(active) {
+        this.isRaining = active;
+        if (this.realRainAudio) {
+          if (active) {
+            if (this.realRainAudio.paused) this.realRainAudio.play().catch(() => {});
+            this.realRainAudio.volume = 0.35;
+          } else {
+            this.realRainAudio.volume = 0.0;
+          }
+        }
+      }
+      update(speedKmh) {
+        // 가속/감속 시 오실로스코프식 주파수 변조 없이 일정한 1.0배속으로 실제 레일 마찰음만 자연스럽게 재생
+        if (this.realRunAudio) {
+          if (speedKmh > 1.0) {
+            if (this.realRunAudio.paused) this.realRunAudio.play().catch(() => {});
+            this.realRunAudio.volume = Math.min(0.38, (speedKmh / 70.0) * 0.38);
+            this.realRunAudio.playbackRate = 1.0;
+          } else {
+            this.realRunAudio.volume = 0.0;
+          }
+        }
+      }
+    }
+    const audio = new SubwayAudio();
+
+    // ------------------------------------------------------------
+    // 2. Three.js 씬, 카메라, 렌더러, 포스트 프로세싱
+    // ------------------------------------------------------------
+    const canvas = document.querySelector("#stage");
+    const intro = document.querySelector("#intro");
+    const startBtn = document.querySelector("#start");
+    const mSpeed = document.querySelector("#m-speed");
+    const mNotch = document.querySelector("#m-notch");
+    const mDistance = document.querySelector("#m-distance");
+    const mProgress = document.querySelector("#m-progress");
+    const mPressure = document.querySelector("#m-pressure");
+    const topGuidance = document.querySelector("#top-guidance");
+    const missionHeadline = document.querySelector("#mission-headline-text");
+    const routeModeSub = document.querySelector("#route-mode-sub");
+    const bottomDash = document.querySelector("#bottom-dash");
+    const passengerFooter = document.querySelector("#passenger-footer");
+    const actionHint = document.querySelector("#action-hint");
+    const cardAlignHud = document.querySelector("#card-align-hud");
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x8ec2eb);
+    scene.fog = new THREE.Fog(0x8ec2eb, 1600, 7500);
+    window.scene = scene;
+
+    const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 8000);
+    camera.up.set(0, 1, 0);
+    window.camera = camera;
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    renderer.setClearColor(0x8ec2eb, 1.0);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.98;
+
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    // 블룸 효과: 윤슬과 조명에 은은하고 세련된 빛 산란 연출
+    const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.20, 0.35, 0.90);
+    composer.addPass(bloom);
+
+    // 환경광 & 맑은 아침 태양광
+    const hemiLight = new THREE.HemisphereLight(0xdcf0ff, 0x3e4d5c, 1.3);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff5e6, 2.4);
+    sunLight.position.set(650, 580, 480);
+    scene.add(sunLight);
+
+    // ------------------------------------------------------------
+    // 3. 하늘 & 배경 (scene.background 및 scene.fog로 무한 원거리까지 완벽한 청명 하늘 유지, 원형 왜곡 완전 제거)
+    // ------------------------------------------------------------
+
+    // ------------------------------------------------------------
+    // 4. 드넓은 한강 수면 & 게르스트너 파도 & 찬란한 아침 윤슬 (강 & 물결)
+    // ------------------------------------------------------------
+    const waterUniforms = {
+      uTime: { value: 0 },
+      uSunDir: { value: sunLight.position.clone().normalize() },
+      uSunCol: { value: new THREE.Color(1.0, 0.96, 0.88) },
+      uSkyCol: { value: new THREE.Color(0.55, 0.74, 0.94) },
+      uDeepCol: { value: new THREE.Color(0.025, 0.12, 0.19) },
+      uShallowCol: { value: new THREE.Color(0.065, 0.28, 0.35) }
+    };
+
+    const waterMat = new THREE.ShaderMaterial({
+      transparent: true,
+      uniforms: waterUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        varying vec3 vNormalW;
+        varying float vWaveHeight;
+        uniform float uTime;
+
+        void main() {
+          vUv = uv;
+          vec3 p = position;
+
+          // 한강 파도 좌표계 (X: 교량 직각/강 폭, -Y: 강물 흐름 Z)
+          float x = p.x;
+          float z = -p.y;
+
+          // 4개의 트로코이달(Gerstner) 파도 옥타브 합성
+          // Wave 1: 드넓은 한강의 본류 파도 (파장 75m)
+          float k1 = 0.019;
+          float w1 = uTime * 1.35;
+          vec2 d1 = normalize(vec2(0.85, 0.52));
+          float dot1 = (d1.x * x + d1.y * z) * k1 + w1;
+          float a1 = 0.36;
+
+          // Wave 2: 교각 및 강변 반사 파도 (파장 42m)
+          float k2 = 0.036;
+          float w2 = -uTime * 1.15;
+          vec2 d2 = normalize(vec2(-0.64, 0.77));
+          float dot2 = (d2.x * x + d2.y * z) * k2 + w2;
+          float a2 = 0.24;
+
+          // Wave 3: 바람결 중형 너울 (파장 22m)
+          float k3 = 0.068;
+          float w3 = uTime * 2.1;
+          vec2 d3 = normalize(vec2(0.38, -0.92));
+          float dot3 = (d3.x * x + d3.y * z) * k3 + w3;
+          float a3 = 0.15;
+
+          // Wave 4: 소형 잔물결 (파장 11m)
+          float k4 = 0.12;
+          float w4 = uTime * 2.9;
+          vec2 d4 = normalize(vec2(-0.91, -0.41));
+          float dot4 = (d4.x * x + d4.y * z) * k4 + w4;
+          float a4 = 0.08;
+
+          float h = a1 * sin(dot1) + a2 * sin(dot2) + a3 * sin(dot3) + a4 * sin(dot4);
+          p.z += h;
+          vWaveHeight = h;
+
+          // 트로코이달 파도의 수평 수축(크레스트 첨두화, 트러프 완만화)
+          float q = 0.38;
+          p.x += -q * (d1.x * a1 * cos(dot1) + d2.x * a2 * cos(dot2) + d3.x * a3 * cos(dot3));
+          p.y += q * (d1.y * a1 * cos(dot1) + d2.y * a2 * cos(dot2) + d3.y * a3 * cos(dot3));
+
+          vec4 wp = modelMatrix * vec4(p, 1.0);
+          vWorldPos = wp.xyz;
+
+          // 정밀 정점 법선 벡터
+          float sX = d1.x * a1 * k1 * cos(dot1) + d2.x * a2 * k2 * cos(dot2) + d3.x * a3 * k3 * cos(dot3) + d4.x * a4 * k4 * cos(dot4);
+          float sZ = d1.y * a1 * k1 * cos(dot1) + d2.y * a2 * k2 * cos(dot2) + d3.y * a3 * k3 * cos(dot3) + d4.y * a4 * k4 * cos(dot4);
+          vNormalW = normalize(vec3(-sX * 1.8, 1.0, -sZ * 1.8));
+
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        varying vec3 vNormalW;
+        varying float vWaveHeight;
+        uniform float uTime;
+        uniform vec3 uSunDir;
+        uniform vec3 uSunCol;
+        uniform vec3 uSkyCol;
+        uniform vec3 uDeepCol;
+        uniform vec3 uShallowCol;
+
+        void main() {
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+
+          // 1. 픽셀 단위 절차적 유기적 모세관 잔물결 (Capillary Waves)
+          vec2 p = vWorldPos.xz;
+          float t = uTime * 1.6;
+
+          float dN1 = sin(p.x * 0.52 + p.y * 0.41 + t * 2.3) * 0.085;
+          float dN2 = cos(p.x * 1.05 - p.y * 0.88 - t * 2.9) * 0.055;
+          float dN3 = sin((p.x + p.y) * 2.4 + t * 4.4) * 0.035;
+          float dN4 = cos((p.x * 2.1 - p.y * 2.7) + t * 5.8) * 0.022;
+          float dN5 = sin((p.x * 4.6 + p.y * 4.2) - t * 7.4) * 0.014;
+
+          vec3 microPerturb = vec3(dN1 + dN2 + dN3 + dN4 + dN5, 0.0, dN2 - dN1 + dN4 - dN3);
+          vec3 normal = normalize(vNormalW + microPerturb * 3.2);
+
+          // 2. 한강 수심별 산란색
+          vec3 waterCol = mix(uDeepCol, uShallowCol, smoothstep(-0.35, 0.45, vWaveHeight));
+
+          // 피하 산란(Subsurface Scattering)
+          float sss = pow(clamp(dot(viewDir, -uSunDir), 0.0, 1.0), 3.8) * (0.55 + 0.45 * vWaveHeight);
+          waterCol += (uSunCol * 0.35 + vec3(0.04, 0.28, 0.22)) * sss * 0.65;
+
+          // 3. 물리 기반 프레넬 반사 (Schlick Fresnel)
+          float fresnel = 0.02 + 0.98 * pow(clamp(1.0 - max(dot(normal, viewDir), 0.0), 0.0, 1.0), 5.0);
+          vec3 skyReflection = mix(uSkyCol, uSkyCol * 0.5, clamp(normal.y, 0.0, 1.0));
+          vec3 finalWater = mix(waterCol, skyReflection, fresnel * 0.85);
+
+          // 4. 자연스럽고 영롱한 한강 윤슬 (규칙적인 격자/다이아몬드 패턴 완전 제거)
+          vec3 halfVec = normalize(uSunDir + viewDir);
+          float nDotH = clamp(dot(normal, halfVec), 0.0, 1.0);
+
+          // 광활한 태양 반사 리본 대역
+          float broadSpecular = pow(nDotH, 50.0) * 2.2;
+
+          // 유기적인 물결 미세 반짝임 (연속 함수로 자연스러운 일렁임 연출)
+          vec2 pG = vWorldPos.xz * 0.35;
+          float glint1 = sin(pG.x * 2.1 + pG.y * 1.7 + uTime * 3.2);
+          float glint2 = cos(pG.x * -1.8 + pG.y * 2.9 - uTime * 2.7);
+          float glint3 = sin((pG.x + pG.y) * 4.3 + uTime * 4.1);
+          float naturalGlint = clamp((glint1 + glint2 + glint3) * 0.33 + 0.5, 0.0, 1.0);
+          float microFacet = pow(nDotH, 130.0) * pow(naturalGlint, 4.0) * 4.5;
+
+          finalWater += (broadSpecular * uSunCol + microFacet * (uSunCol * 1.4));
+          finalWater = clamp(finalWater, vec3(0.0), vec3(3.0));
+
+          gl_FragColor = vec4(finalWater, 0.98);
+        }
+      `
+    });
+
+    const river = new THREE.Mesh(new THREE.PlaneGeometry(8000, 6000, 256, 180), waterMat);
+    river.rotation.x = -Math.PI / 2;
+    river.position.set(0, 0.0, 0);
+    scene.add(river);
+
+    // ------------------------------------------------------------
+    // 5. 서울 지하철 2호선 4각 순환선 (Closed 4-Corner Circular Loop)
+    // 강변(잠실철교) ↔ 잠실나루 ↔ 잠실(롯데타워 도심) ↔ 올림픽대교 ↔ 구의(강변북로) 순환
+    // ------------------------------------------------------------
+    const routePoints = [
+      new THREE.Vector3(-360, 16.0, -850),  // 1. 강변역 출발 (잠실철교 북단)
+      new THREE.Vector3(-180, 16.0, -425),  // 2. 잠실철교 북측 횡단
+      new THREE.Vector3(0, 16.0, 0),        // 3. 잠실철교 중앙 (한강 중심)
+      new THREE.Vector3(180, 16.0, 425),    // 4. 잠실철교 남측 횡단
+      new THREE.Vector3(360, 16.0, 850),    // 5. 잠실나루역 (코너 1)
+      new THREE.Vector3(650, 16.0, 1050),   // 6. 잠실 도심 외곽 (장미아파트 단지)
+      new THREE.Vector3(980, 16.0, 950),    // 7. 잠실역/롯데타워 외곽 선회 (코너 2)
+      new THREE.Vector3(1150, 16.0, 650),   // 8. 송파 도심 고가 구간
+      new THREE.Vector3(1100, 16.0, 250),   // 9. 올림픽대교 남단 진입
+      new THREE.Vector3(880, 16.0, -150),   // 10. 올림픽대교 한강 횡단
+      new THREE.Vector3(620, 16.0, -550),   // 11. 올림픽대교 88주탑 조망
+      new THREE.Vector3(360, 16.0, -900),   // 12. 올림픽대교 북단 (코너 3)
+      new THREE.Vector3(120, 16.0, -1120),  // 13. 구의/광진구 도심 (코너 4)
+      new THREE.Vector3(-150, 16.0, -1150), // 14. 강변북로변 고가선로
+      new THREE.Vector3(-300, 16.0, -1020)  // 15. 강변역 순환 완결 복귀
+    ];
+    const routeCurve = new THREE.CatmullRomCurve3(routePoints, true, "catmullrom", 0.15);
+    const routeLength = routeCurve.getLength();
+
+    function routeFrameAt(t) {
+      let tt = t % 1.0;
+      if (tt < 0) tt += 1.0;
+      const p = routeCurve.getPointAt(tt);
+      const tangent = routeCurve.getTangentAt(tt).normalize();
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      const right = new THREE.Vector3().crossVectors(tangent, worldUp).normalize();
+      const up = new THREE.Vector3().crossVectors(right, tangent).normalize();
+      const yaw = Math.atan2(tangent.x, tangent.z);
+      return { p, tangent, right, up, yaw };
+    }
+
+    // ------------------------------------------------------------
+    // 6. 2호선 복선 순환 철교 & 고가 선로 (16m 높이 & 전차선 & 보행로)
+    // ------------------------------------------------------------
+    const matConcreteBridge = new THREE.MeshStandardMaterial({ color: 0x5a636e, roughness: 0.82 });
+    const matRailSteel = new THREE.MeshStandardMaterial({ color: 0x828b94, metalness: 0.88, roughness: 0.2 });
+    const matBallastGravel = new THREE.MeshStandardMaterial({ color: 0x484c52, roughness: 0.95 });
+    const matCatenarySteel = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.6 });
+    const matGreenRail = new THREE.MeshStandardMaterial({ color: 0x00a84d, roughness: 0.45 });
+    const matStainlessSteel = new THREE.MeshStandardMaterial({ color: 0xd8dde3, metalness: 0.88, roughness: 0.15 });
+
+    function makeBridgeRibbon(width, yOff, mat, xOff = 0) {
+      const samples = 1200;
+      const vertices = [], uvs = [], indices = [];
+      for (let i = 0; i <= samples; i++) {
+        const f = routeFrameAt(i / samples);
+        const center = f.p.clone().addScaledVector(f.right, xOff);
+        const l = center.clone().addScaledVector(f.right, -width / 2);
+        const r = center.clone().addScaledVector(f.right, width / 2);
+        vertices.push(l.x, l.y + yOff, l.z, r.x, r.y + yOff, r.z);
+        uvs.push(0, i * 0.5, 1, i * 0.5);
+        if (i < samples) {
+          const n = i * 2;
+          indices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2);
+        }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+      geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+      geo.setIndex(indices);
+      geo.computeVertexNormals();
+      return new THREE.Mesh(geo, mat);
+    }
+
+    // ------------------------------------------------------------
+    // 6. 2호선 복선 순환 철교 & 고가 선로 초정밀 디테일 (최고 화질 레일·침목·전차선·신호기)
+    // ------------------------------------------------------------
+    // 고해상도 자갈 도상 & 콘크리트 침목(PC 침목) 정밀 텍스처 (판드롤 e-클립 체결구 & 타이플레이트 포함)
+    const sleeperCanvas = document.createElement("canvas");
+    sleeperCanvas.width = 256;
+    sleeperCanvas.height = 512;
+    const sctx = sleeperCanvas.getContext("2d");
+    sctx.fillStyle = "#32373e"; // 쇄석 자갈 도상 (Ballast)
+    sctx.fillRect(0, 0, 256, 512);
+
+    // 자갈 질감 노이즈
+    for (let g = 0; g < 400; g++) {
+      const gx = Math.random() * 256;
+      const gy = Math.random() * 512;
+      const gr = 1.5 + Math.random() * 3.5;
+      sctx.fillStyle = Math.random() > 0.5 ? "#24282e" : "#454d57";
+      sctx.beginPath();
+      sctx.arc(gx, gy, gr, 0, Math.PI * 2);
+      sctx.fill();
+    }
+
+    function drawPCCheapSleeper(yPos) {
+      // 프리스트레스트 콘크리트 침목 본체 (챔퍼 모따기 및 요철)
+      sctx.fillStyle = "#8d97a2";
+      sctx.fillRect(10, yPos, 236, 120);
+      sctx.fillStyle = "#76808b";
+      sctx.fillRect(10, yPos + 105, 236, 15);
+      sctx.fillStyle = "#a1abb6";
+      sctx.fillRect(10, yPos, 236, 12);
+
+      // 좌우 레일 체결부 (타이플레이트 철판 & 탄성 판드롤 e-클립 체결구)
+      [42, 178].forEach(clipX => {
+        sctx.fillStyle = "#1e2227"; // 고강도 타이플레이트 강판
+        sctx.fillRect(clipX - 22, yPos + 18, 44, 84);
+        sctx.fillStyle = "#111417"; // 레일 충격 흡수 고무 패드
+        sctx.fillRect(clipX - 16, yPos + 26, 32, 68);
+        // 판드롤 e-클립 스프링 강철 형상
+        sctx.fillStyle = "#5c6570";
+        sctx.fillRect(clipX - 20, yPos + 34, 8, 52);
+        sctx.fillRect(clipX + 12, yPos + 34, 8, 52);
+        sctx.fillStyle = "#f59e0b"; // 절연 포스트 캡 (노란색)
+        sctx.fillRect(clipX - 4, yPos + 22, 8, 8);
+        sctx.fillRect(clipX - 4, yPos + 90, 8, 8);
+      });
+    }
+    drawPCCheapSleeper(64);
+    drawPCCheapSleeper(320);
+
+    const sleeperTex = new THREE.CanvasTexture(sleeperCanvas);
+    sleeperTex.wrapS = THREE.RepeatWrapping;
+    sleeperTex.wrapT = THREE.RepeatWrapping;
+    sleeperTex.repeat.set(1, 1500);
+    const matSleeper = new THREE.MeshStandardMaterial({ map: sleeperTex, roughness: 0.82 });
+
+    // 교량 콘크리트 상판 & 도상
+    scene.add(makeBridgeRibbon(10.8, -0.4, matConcreteBridge, 0));
+    scene.add(makeBridgeRibbon(9.4, -0.15, matBallastGravel, 0));
+
+    // 외선/내선 콘크리트 침목 도상 (폭 2.8m)
+    scene.add(makeBridgeRibbon(2.8, 0.005, matSleeper, 1.6));
+    scene.add(makeBridgeRibbon(2.8, 0.005, matSleeper, -1.6));
+
+    // 우측 보행로 & 안전 난간 (한강 조망 보행교 & 케이블 트러프)
+    scene.add(makeBridgeRibbon(2.2, -0.32, matConcreteBridge, 5.3));
+    scene.add(makeBridgeRibbon(0.12, 0.55, matGreenRail, 6.3));
+
+    // 선로변 콘크리트 신호/전력 케이블 트러프 (Cable Trough)
+    const matCableTrough = new THREE.MeshStandardMaterial({ color: 0x4a525d, roughness: 0.88 });
+    scene.add(makeBridgeRibbon(0.48, -0.05, matCableTrough, 3.8));
+    scene.add(makeBridgeRibbon(0.48, -0.05, matCableTrough, -3.8));
+
+    // [복선 철도 레일] (표준궤 1435mm, UIC 60kg 강철 레일)
+    // 눈부신 스펙큘러를 반사하는 고경도 연마 레일 두부(Railhead Top) & 산화철 레일 저부
+    const matRailHead = new THREE.MeshStandardMaterial({
+      color: 0xd8e2ed,
+      metalness: 0.96,
+      roughness: 0.10
+    });
+    const matRailBase = new THREE.MeshStandardMaterial({
+      color: 0x3d4248,
+      metalness: 0.75,
+      roughness: 0.65
+    });
+
+    // 외선 선로 주행 레일 (1.6 ± 0.7175m)
+    [-0.7175, 0.7175].forEach(rx => {
+      scene.add(makeBridgeRibbon(0.16, 0.04, matRailBase, 1.6 + rx));
+      scene.add(makeBridgeRibbon(0.08, 0.085, matRailHead, 1.6 + rx));
+    });
+    // 외선 선로 탈선 방지 안전 가드레일 (호륜레일: 1.6 ± 0.48m)
+    const matGuardRail = new THREE.MeshStandardMaterial({ color: 0x5a636e, roughness: 0.45, metalness: 0.75 });
+    scene.add(makeBridgeRibbon(0.08, 0.065, matGuardRail, 1.6 - 0.48));
+    scene.add(makeBridgeRibbon(0.08, 0.065, matGuardRail, 1.6 + 0.48));
+
+    // 내선 선로 주행 레일 (-1.6 ± 0.7175m)
+    [-0.7175, 0.7175].forEach(rx => {
+      scene.add(makeBridgeRibbon(0.16, 0.04, matRailBase, -1.6 + rx));
+      scene.add(makeBridgeRibbon(0.08, 0.085, matRailHead, -1.6 + rx));
+    });
+    // 내선 선로 탈선 방지 안전 가드레일 (-1.6 ± 0.48m)
+    scene.add(makeBridgeRibbon(0.08, 0.065, matGuardRail, -1.6 - 0.48));
+    scene.add(makeBridgeRibbon(0.08, 0.065, matGuardRail, -1.6 + 0.48));
+
+    // 전차선 (실제 전철 급전선: 트로리 접촉선 y=5.2m & 상부 조가선 y=5.95m & 급전선)
+    const matWire = new THREE.MeshBasicMaterial({ color: 0x1e242b });
+    const matFeederWire = new THREE.MeshBasicMaterial({ color: 0x11161a });
+    scene.add(makeBridgeRibbon(0.04, 5.2, matWire, 1.6));
+    scene.add(makeBridgeRibbon(0.03, 5.95, matWire, 1.6));
+    scene.add(makeBridgeRibbon(0.04, 5.2, matWire, -1.6));
+    scene.add(makeBridgeRibbon(0.03, 5.95, matWire, -1.6));
+    // 고압 급전선 (외측 전차선 지주 상단 가설 y=6.4m)
+    scene.add(makeBridgeRibbon(0.035, 6.35, matFeederWire, 4.3));
+    scene.add(makeBridgeRibbon(0.035, 6.35, matFeederWire, -4.3));
+
+    // 교각 & 전차선 포털 트러스 지주 & 철도 신호기 & 드롭퍼 & ATS 지상자 & 속도제한 표지
+    const sigGroup = new THREE.Group();
+    const sigLampGreen = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+    const sigBoxMat = new THREE.MeshBasicMaterial({ color: 0x15191e });
+    const matAtsYellow = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.4 }); // ATS 지상자
+    const matInsulator = new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.3 }); // 갈색 도자기 현수 애자
+    const matSpeedSign = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+
+    for (let t = 0.008; t < 1.0; t += 0.012) {
+      const f = routeFrameAt(t);
+      const pierH = f.p.y + 0.5;
+      const pier = new THREE.Mesh(new THREE.BoxGeometry(4.8, pierH, 7.8), matConcreteBridge);
+      pier.position.set(f.p.x, pierH / 2 - 0.2, f.p.z);
+      pier.rotation.y = f.yaw;
+      scene.add(pier);
+
+      // 전차선 포털 지주 (Steel Portal Lattice Mast)
+      const mastH = 6.4;
+      const mastL = new THREE.Mesh(new THREE.BoxGeometry(0.24, mastH, 0.24), matCatenarySteel);
+      mastL.position.copy(f.p).addScaledVector(f.right, -4.4).add(new THREE.Vector3(0, mastH / 2, 0));
+      scene.add(mastL);
+
+      const mastR = new THREE.Mesh(new THREE.BoxGeometry(0.24, mastH, 0.24), matCatenarySteel);
+      mastR.position.copy(f.p).addScaledVector(f.right, 4.4).add(new THREE.Vector3(0, mastH / 2, 0));
+      scene.add(mastR);
+
+      // 워렌 트러스 빔 (상하 이중 빔 & 사선 브레이스)
+      const beamTop = new THREE.Mesh(new THREE.BoxGeometry(9.0, 0.14, 0.14), matCatenarySteel);
+      beamTop.position.copy(f.p).add(new THREE.Vector3(0, mastH - 0.15, 0));
+      beamTop.rotation.y = f.yaw;
+      scene.add(beamTop);
+
+      const beamBottom = new THREE.Mesh(new THREE.BoxGeometry(9.0, 0.12, 0.12), matCatenarySteel);
+      beamBottom.position.copy(f.p).add(new THREE.Vector3(0, mastH - 0.75, 0));
+      beamBottom.rotation.y = f.yaw;
+      scene.add(beamBottom);
+
+      // 고전압 3단 핀 도자기 애자 (Insulator Stack)
+      [-1.6, 1.6].forEach(trackX => {
+        const ins = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.45, 8), matInsulator);
+        ins.position.copy(f.p).addScaledVector(f.right, trackX).add(new THREE.Vector3(0, 6.0, 0));
+        scene.add(ins);
+
+        // 곡선당김금구 (Registration Steady Arm)
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.65, 6), matCatenarySteel);
+        arm.position.copy(f.p).addScaledVector(f.right, trackX + 0.15).add(new THREE.Vector3(0, 5.4, 0));
+        arm.rotation.z = 0.4;
+        scene.add(arm);
+      });
+
+      const gPost = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), matGreenRail);
+      gPost.position.copy(f.p).addScaledVector(f.right, 5.8).add(new THREE.Vector3(0, 0.55, 0));
+      scene.add(gPost);
+
+      // 전차선 드롭퍼 (수직 행어 와이어 - 촘촘한 배치)
+      [-1.6, 1.6].forEach(trackX => {
+        const dropper = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.75, 6), matWire);
+        dropper.position.copy(f.p).addScaledVector(f.right, trackX).add(new THREE.Vector3(0, 5.575, 0));
+        scene.add(dropper);
+      });
+
+      // 철도 보안장치 ATS 지상자 (노란색 트랜스폰더 발리스)
+      if (Math.round(t * 1000) % 24 === 0) {
+        const ats1 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.07, 1.1), matAtsYellow);
+        ats1.position.copy(f.p).addScaledVector(f.right, 1.6).add(new THREE.Vector3(0, 0.045, 0));
+        ats1.rotation.y = f.yaw;
+        scene.add(ats1);
+
+        const ats2 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.07, 1.1), matAtsYellow);
+        ats2.position.copy(f.p).addScaledVector(f.right, -1.6).add(new THREE.Vector3(0, 0.045, 0));
+        ats2.rotation.y = f.yaw;
+        scene.add(ats2);
+      }
+
+      // 4구 철도 자동폐색 신호기 (초록색 진행 신호 점등 & 차광 롱 후드 & 사다리)
+      if (Math.round(t * 1000) % 36 === 0) {
+        const sigPole = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 4.4, 8), matCatenarySteel);
+        sigPole.position.copy(f.p).addScaledVector(f.right, 3.4).add(new THREE.Vector3(0, 2.2, 0));
+        const sigBox = new THREE.Mesh(new THREE.BoxGeometry(0.38, 1.1, 0.3), sigBoxMat);
+        sigBox.position.set(0, 1.3, 0);
+        sigPole.add(sigBox);
+        const lamp = new THREE.Mesh(new THREE.CircleGeometry(0.12, 14), sigLampGreen);
+        lamp.position.set(0, 0.28, -0.16);
+        lamp.rotation.y = Math.PI;
+        sigBox.add(lamp);
+        const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.16, 8, 1, true, 0, Math.PI), sigBoxMat);
+        hood.rotation.x = Math.PI / 2;
+        hood.position.set(0, 0.35, -0.18);
+        sigBox.add(hood);
+        // 신호기 점검 발판
+        const platform = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.05, 0.45), matCatenarySteel);
+        platform.position.set(0, 0.65, -0.15);
+        sigPole.add(platform);
+        sigGroup.add(sigPole);
+      }
+
+      // 속도 제한 표지판 ([80], [70], [60])
+      if (Math.round(t * 1000) % 60 === 0) {
+        const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6, 8), matCatenarySteel);
+        signPost.position.copy(f.p).addScaledVector(f.right, -3.4).add(new THREE.Vector3(0, 1.3, 0));
+        const signPlate = new THREE.Mesh(new THREE.CircleGeometry(0.38, 16), matSpeedSign);
+        signPlate.position.set(0, 1.1, 0.05);
+        signPost.add(signPlate);
+        sigGroup.add(signPost);
+      }
+    }
+    scene.add(sigGroup);
+
+    // 잠실나루역 진입부 선로전환 크로스오버 건넘선 (Double Crossover Point)
+    const crossoverFrame = routeFrameAt(0.28);
+    const matFrogSteel = new THREE.MeshStandardMaterial({ color: 0xa0aab5, metalness: 0.9, roughness: 0.2 });
+    const xSwitchL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 18), matFrogSteel);
+    xSwitchL.position.copy(crossoverFrame.p).add(new THREE.Vector3(0, 0.08, 0));
+    xSwitchL.rotation.y = crossoverFrame.yaw + 0.18;
+    scene.add(xSwitchL);
+
+    const xSwitchR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 18), matFrogSteel);
+    xSwitchR.position.copy(crossoverFrame.p).add(new THREE.Vector3(0, 0.08, 0));
+    xSwitchR.rotation.y = crossoverFrame.yaw - 0.18;
+    scene.add(xSwitchR);
+
+    // NS형 전기 선로전환기 함 (Point Machine)
+    const pointMachine = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.35, 0.85), sigBoxMat);
+    pointMachine.position.copy(crossoverFrame.p).addScaledVector(crossoverFrame.right, 2.7).add(new THREE.Vector3(0, 0.18, 0));
+    pointMachine.rotation.y = crossoverFrame.yaw;
+    scene.add(pointMachine);
+
+    // ------------------------------------------------------------
+    // 6.5. 올림픽대교 (88 서울올림픽 기념 88m 4주 주탑 & 성화 & 24가닥 사장교)
+    // ------------------------------------------------------------
+    const olympicBridge = new THREE.Group();
+    const obPos = new THREE.Vector3(420, 14.0, -820);
+    const obRot = 0.35;
+
+    const obDeck = new THREE.Mesh(new THREE.BoxGeometry(3200, 4.5, 26), matConcreteBridge);
+    obDeck.position.copy(obPos);
+    obDeck.rotation.y = obRot;
+    olympicBridge.add(obDeck);
+
+    // 4개의 거대한 콘크리트 주탑 기둥
+    const matWhitePylon = new THREE.MeshStandardMaterial({ color: 0xf0f3f6, roughness: 0.35 });
+    const matGoldTorch = new THREE.MeshStandardMaterial({ color: 0xf5b041, metalness: 0.85, roughness: 0.2 });
+    const matSteelStay = new THREE.MeshBasicMaterial({ color: 0xb0bec5 });
+
+    [-4.5, 4.5].forEach(px => {
+      [-3.5, 3.5].forEach(pz => {
+        const pylonLeg = new THREE.Mesh(new THREE.CylinderGeometry(1.8, 3.2, 88, 12), matWhitePylon);
+        pylonLeg.position.set(obPos.x + px * 1.6, obPos.y + 44, obPos.z + pz * 1.6);
+        pylonLeg.rotation.z = -px * 0.05;
+        pylonLeg.rotation.x = pz * 0.05;
+        olympicBridge.add(pylonLeg);
+      });
+    });
+
+    // 주탑 정상 올림픽 성화 불꽃 기념탑
+    const torchSpire = new THREE.Mesh(new THREE.ConeGeometry(5.2, 14.0, 16), matGoldTorch);
+    torchSpire.position.set(obPos.x, obPos.y + 95, obPos.z);
+    olympicBridge.add(torchSpire);
+
+    // 24가닥 방사형 강철 사장 케이블
+    for (let c = -12; c <= 12; c++) {
+      if (c === 0) continue;
+      const cDist = c * 38.0;
+      const anchorPos = new THREE.Vector3(
+        obPos.x + cDist * Math.cos(obRot),
+        obPos.y + 2.2,
+        obPos.z - cDist * Math.sin(obRot)
+      );
+      const topPos = new THREE.Vector3(obPos.x, obPos.y + 78, obPos.z);
+      const cableGeo = new THREE.BufferGeometry().setFromPoints([topPos, anchorPos]);
+      olympicBridge.add(new THREE.Line(cableGeo, matSteelStay));
+    }
+
+    // 올림픽대교 수중 교각
+    for (let bx = -1400; bx <= 1400; bx += 220) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(14, 16, 14), matConcreteBridge);
+      p.position.set(obPos.x + bx * Math.cos(obRot), 7.0, obPos.z - bx * Math.sin(obRot));
+      olympicBridge.add(p);
+    }
+    scene.add(olympicBridge);
+
+    // ------------------------------------------------------------
+    // 7. 한강 양안 사실적 지형 및 둔치 (남단 잠실 & 북단 광진/강변)
+    // ------------------------------------------------------------
+    const matEmbankment = new THREE.MeshStandardMaterial({ color: 0xc8c2b5, roughness: 0.9 });
+    const matCityGround = new THREE.MeshStandardMaterial({ color: 0x8a929b, roughness: 0.85 });
+    const matHangangPark = new THREE.MeshStandardMaterial({ color: 0x42754e, roughness: 0.85 }); // 푸른 잔디공원
+    const matHighway = new THREE.MeshStandardMaterial({ color: 0x333842, roughness: 0.75 }); // 올림픽대로 / 강변북로
+    const matTrackRed = new THREE.MeshStandardMaterial({ color: 0xb34436, roughness: 0.85 }); // 우레탄 조깅트랙
+
+    const terrainGroup = new THREE.Group();
+
+    // [남단 잠실 지면] Z: 450 ~ 2600, Y: 4.5 (고도 4.5m 도시 대지)
+    const southGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2200), matCityGround);
+    southGround.rotation.x = -Math.PI / 2;
+    southGround.position.set(200, 4.48, 1550);
+    terrainGroup.add(southGround);
+
+    // 남단 한강공원 잔디밭 (Z: 470 ~ 600)
+    const southPark = new THREE.Mesh(new THREE.PlaneGeometry(6000, 130), matHangangPark);
+    southPark.rotation.x = -Math.PI / 2;
+    southPark.position.set(200, 4.50, 535);
+    terrainGroup.add(southPark);
+
+    // 남단 조깅트랙 (Z: 505 ~ 512)
+    const southTrack = new THREE.Mesh(new THREE.PlaneGeometry(6000, 7), matTrackRed);
+    southTrack.rotation.x = -Math.PI / 2;
+    southTrack.position.set(200, 4.52, 508);
+    terrainGroup.add(southTrack);
+
+    // 올림픽대로 고속화도로 (Z: 605 ~ 665)
+    const southHwy = new THREE.Mesh(new THREE.PlaneGeometry(6000, 60), matHighway);
+    southHwy.rotation.x = -Math.PI / 2;
+    southHwy.position.set(200, 4.53, 635);
+    terrainGroup.add(southHwy);
+
+    // 남단 강둑 석축 사면 (Z: 450 ~ 470, Y: 0.1 ~ 4.5)
+    const southSlopeGeo = new THREE.PlaneGeometry(6000, 25);
+    const southSlope = new THREE.Mesh(southSlopeGeo, matEmbankment);
+    southSlope.rotation.x = -Math.PI / 2 + 0.22;
+    southSlope.position.set(200, 2.3, 460);
+    terrainGroup.add(southSlope);
+
+    // [북단 강변/광진 지면] Z: -450 ~ -2600, Y: 4.5
+    const northGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2200), matCityGround);
+    northGround.rotation.x = -Math.PI / 2;
+    northGround.position.set(200, 4.48, -1550);
+    terrainGroup.add(northGround);
+
+    // 북단 한강공원 잔디밭 (Z: -470 ~ -580)
+    const northPark = new THREE.Mesh(new THREE.PlaneGeometry(6000, 110), matHangangPark);
+    northPark.rotation.x = -Math.PI / 2;
+    northPark.position.set(200, 4.50, -525);
+    terrainGroup.add(northPark);
+
+    // 강변북로 고속화도로 (Z: -585 ~ -645)
+    const northHwy = new THREE.Mesh(new THREE.PlaneGeometry(6000, 60), matHighway);
+    northHwy.rotation.x = -Math.PI / 2;
+    northHwy.position.set(200, 4.53, -615);
+    terrainGroup.add(northHwy);
+
+    // 북단 강둑 석축 사면 (Z: -450 ~ -470, Y: 0.1 ~ 4.5)
+    const northSlopeGeo = new THREE.PlaneGeometry(6000, 25);
+    const northSlope = new THREE.Mesh(northSlopeGeo, matEmbankment);
+    northSlope.rotation.x = -Math.PI / 2 - 0.22;
+    northSlope.position.set(200, 2.3, -460);
+    terrainGroup.add(northSlope);
+
+    scene.add(terrainGroup);
+
+    // 양안 강변 가로수림 수목 배치 (수면에 겹치지 않고 지상에 올바르게 식재)
+    const treeTrunkGeo = new THREE.CylinderGeometry(0.35, 0.45, 3.2, 8);
+    const treeCanopyGeo = new THREE.SphereGeometry(2.6, 8, 8);
+    const matTrunk = new THREE.MeshStandardMaterial({ color: 0x4a3b32, roughness: 0.9 });
+    const matCanopy1 = new THREE.MeshStandardMaterial({ color: 0x2e6b37, roughness: 0.78 });
+    const matCanopy2 = new THREE.MeshStandardMaterial({ color: 0x3d7e46, roughness: 0.78 });
+    const matCanopyGinkgo = new THREE.MeshStandardMaterial({ color: 0x7da438, roughness: 0.8 });
+    const treeGroup = new THREE.Group();
+
+    // 남단 공원 가로수
+    for (let x = -1400; x <= 1800; x += 36) {
+      [-20, 20].forEach((oz, idx) => {
+        const trunk = new THREE.Mesh(treeTrunkGeo, matTrunk);
+        trunk.position.set(x + (idx * 12), 4.5 + 1.6, 535 + oz);
+        const canopy = new THREE.Mesh(treeCanopyGeo, (x + idx) % 2 === 0 ? matCanopy1 : matCanopy2);
+        canopy.position.set(x + (idx * 12), 4.5 + 3.9, 535 + oz);
+        treeGroup.add(trunk);
+        treeGroup.add(canopy);
+      });
+    }
+    // 북단 공원 가로수
+    for (let x = -1400; x <= 1800; x += 40) {
+      [-15, 15].forEach((oz, idx) => {
+        const trunk = new THREE.Mesh(treeTrunkGeo, matTrunk);
+        trunk.position.set(x + (idx * 14), 4.5 + 1.6, -525 + oz);
+        const canopy = new THREE.Mesh(treeCanopyGeo, (x + idx) % 2 === 0 ? matCanopy1 : matCanopyGinkgo);
+        canopy.position.set(x + (idx * 14), 4.5 + 3.9, -525 + oz);
+        treeGroup.add(trunk);
+        treeGroup.add(canopy);
+      });
+    }
+    scene.add(treeGroup);
+
+    // ------------------------------------------------------------
+    // 8. 언리얼급 한국 고층 아파트 대단지 (잠실 엘스/리센츠/장미 스타일)
+    // ------------------------------------------------------------
+    const aptShaderMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uSunDir: { value: sunLight.position.clone().normalize() }
+      },
+      vertexShader: `
+        varying vec3 vWorldPos;
+        varying vec3 vNormal;
+        void main() {
+          vNormal = normalize(mat3(modelMatrix) * normal);
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vWorldPos;
+        varying vec3 vNormal;
+        uniform vec3 uSunDir;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+        void main() {
+          vec3 n = abs(vNormal);
+          float u = n.x > 0.5 ? vWorldPos.z : vWorldPos.x;
+          float v = vWorldPos.y;
+
+          float floorId = floor(v / 3.2);
+          float colId = floor(u / 3.6);
+          float inFloor = fract(v / 3.2);
+          float inCol = fract(u / 3.6);
+
+          // 한국 고급 아파트 외벽 (아이보리 화이트 & 네이비/테라코타 밴드)
+          float buildingType = hash(vec2(floor(u / 45.0), 17.3));
+          vec3 wallColor = vec3(0.92, 0.93, 0.95);
+          if (buildingType < 0.45) {
+            if (mod(floorId, 7.0) < 1.0) wallColor = vec3(0.35, 0.45, 0.55);
+            else if (inCol < 0.12 || inCol > 0.88) wallColor = vec3(0.82, 0.85, 0.88);
+          } else {
+            wallColor = vec3(0.93, 0.90, 0.84);
+            if (mod(floorId, 5.0) < 1.0) wallColor = vec3(0.68, 0.52, 0.42);
+          }
+
+          if (inFloor < 0.06 || inFloor > 0.96) {
+            wallColor *= 0.82;
+          }
+
+          bool isWindow = (inFloor > 0.18 && inFloor < 0.84) && (inCol > 0.15 && inCol < 0.85);
+          vec3 col = wallColor;
+
+          if (isWindow) {
+            if (inFloor < 0.23 || inFloor > 0.79 || inCol < 0.20 || inCol > 0.80) {
+              col = vec3(0.98, 0.98, 1.0);
+            } else {
+              float rnd = hash(vec2(floorId, colId));
+              if (rnd < 0.18) {
+                col = vec3(1.0, 0.94, 0.75);
+              } else {
+                col = vec3(0.12, 0.22, 0.35);
+              }
+
+              if (inFloor > 0.23 && inFloor < 0.46) {
+                if (mod(inCol * 28.0, 1.0) < 0.32) {
+                  col = vec3(0.85, 0.90, 0.95);
+                } else {
+                  col = mix(col, vec3(0.35, 0.55, 0.65), 0.5);
+                }
+              }
+
+              if (inFloor > 0.23 && inFloor < 0.35 && inCol > 0.55 && inCol < 0.78) {
+                col = vec3(0.78, 0.80, 0.82);
+              }
+            }
+          }
+
+          if (v > 65.0 && n.y < 0.5) {
+            float numU = fract(u / 6.0);
+            float numV = fract(v / 4.0);
+            if (numU > 0.2 && numU < 0.8 && numV > 0.25 && numV < 0.75) {
+              col = mix(col, vec3(0.15, 0.25, 0.4), 0.85);
+            }
+          }
+
+          float diff = max(0.48, dot(vNormal, uSunDir) * 0.65 + 0.48);
+          col *= diff;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `
+    });
+
+    const aptGroup = new THREE.Group();
+    const aptBoxGeo = new THREE.BoxGeometry(1, 1, 1);
+
+    // [남단 잠실 아파트 대단지] - Z > 700에 정연하게 배치
+    const southAptCols = [-600, -420, -240, -60, 120, 300, 480, 660, 840, 1020, 1200, 1380, 1560, 1740];
+    const southAptRows = [720, 870, 1040, 1220];
+    southAptRows.forEach((rz, rowIdx) => {
+      southAptCols.forEach((cx, colIdx) => {
+        if (Math.hypot(cx - 1450, rz - 950) < 220) return; // 롯데타워 부지 확보
+        if (Math.hypot(cx - 650, rz - 1050) < 70) return;  // 선로 코너 간섭 방지
+
+        const w = 48 + ((colIdx + rowIdx) % 3) * 6;
+        const h = 68 + ((colIdx * 3 + rowIdx) % 5) * 12;
+        const d = 18;
+        const apt = new THREE.Mesh(aptBoxGeo, aptShaderMat);
+        apt.scale.set(w, h, d);
+        apt.position.set(cx + ((rowIdx % 2) * 20), h / 2 + 4.5, rz);
+        aptGroup.add(apt);
+
+        const roof = new THREE.Mesh(aptBoxGeo, aptShaderMat);
+        roof.scale.set(w * 0.35, 6.5, d * 0.55);
+        roof.position.set(apt.position.x, h + 4.5 + 3.25, rz);
+        aptGroup.add(roof);
+      });
+    });
+
+    // [북단 강변/구의 아파트 및 상업 단지] - Z < -700에 정연하게 배치
+    const northAptCols = [-650, -450, -250, -50, 150, 350, 550, 750, 950, 1150, 1350, 1550];
+    const northAptRows = [-720, -880, -1060, -1260];
+    northAptRows.forEach((rz, rowIdx) => {
+      northAptCols.forEach((cx, colIdx) => {
+        const w = 46 + ((colIdx + rowIdx) % 3) * 8;
+        const h = 64 + ((colIdx * 2 + rowIdx) % 4) * 14;
+        const d = 20;
+        const apt = new THREE.Mesh(aptBoxGeo, aptShaderMat);
+        apt.scale.set(w, h, d);
+        apt.position.set(cx + ((rowIdx % 2) * 25), h / 2 + 4.5, rz);
+        aptGroup.add(apt);
+
+        const roof = new THREE.Mesh(aptBoxGeo, aptShaderMat);
+        roof.scale.set(w * 0.32, 6.0, d * 0.5);
+        roof.position.set(apt.position.x, h + 4.5 + 3.0, rz);
+        aptGroup.add(roof);
+      });
+    });
+    scene.add(aptGroup);
+
+    // ------------------------------------------------------------
+    // 8-1. Sketchfab / Kenney 3D 무료 시티팩 모델 비동기 로드 및 한강 수변 공원 & 도심 배치
+    // ------------------------------------------------------------
+    const cityPackGroup = new THREE.Group();
+    scene.add(cityPackGroup);
+
+    const gltfLoader = new GLTFLoader();
+    const cityModels = [
+      { url: "models/building-small-a.glb", scale: 4.5 },
+      { url: "models/building-small-b.glb", scale: 4.5 },
+      { url: "models/building-small-c.glb", scale: 4.5 },
+      { url: "models/building-small-d.glb", scale: 4.5 },
+      { url: "models/building-garage.glb", scale: 4.0 },
+      { url: "models/pavement-fountain.glb", scale: 3.5 },
+      { url: "models/road-straight-lightposts.glb", scale: 4.0 },
+      { url: "models/grass-trees.glb", scale: 4.0 }
+    ];
+
+    cityModels.forEach((m, mIdx) => {
+      gltfLoader.load(m.url, (gltf) => {
+        const root = gltf.scene;
+        root.traverse((node) => {
+          if (node.isMesh) {
+            node.castShadow = false;
+            node.receiveShadow = true;
+          }
+        });
+
+        // 1) 뚝섬 한강공원 수변 광장 (북단 X: -300 ~ 1100, Z: -500 ~ -460)
+        for (let x = -300; x <= 1100; x += 140) {
+          const clone = root.clone();
+          clone.scale.setScalar(m.scale);
+          clone.position.set(x + ((mIdx * 17) % 75), 4.5, -480 - ((mIdx * 21) % 40));
+          clone.rotation.y = ((mIdx + x) % 4) * (Math.PI / 2);
+          cityPackGroup.add(clone);
+        }
+
+        // 2) 잠실 한강공원 수변 광장 (남단 X: -300 ~ 1100, Z: 460 ~ 500)
+        for (let x = -250; x <= 1150; x += 150) {
+          const clone = root.clone();
+          clone.scale.setScalar(m.scale);
+          clone.position.set(x + ((mIdx * 19) % 80), 4.5, 480 + ((mIdx * 18) % 35));
+          clone.rotation.y = ((mIdx * 3 + x) % 4) * (Math.PI / 2);
+          cityPackGroup.add(clone);
+        }
+      }, undefined, (err) => {
+        // 비동기 로딩 오류 시에도 시뮬레이션 영향 없음
+      });
+    });
+
+    // ------------------------------------------------------------
+    // 9. 잠실 랜드마크 (555m 롯데월드타워 - 사실적 PBR 글래스 타워 & 웅장한 도심 스카이라인)
+    // ------------------------------------------------------------
+    const lotteGroup = new THREE.Group();
+    // 2호선 잠실나루 남동쪽 실제 송파 랜드마크 위치 (탁 트인 한강 및 잠실 스카이라인 조망)
+    const lotteBasePos = new THREE.Vector3(1450, 4.5, 950);
+
+    // 반짝이는 은빛/하늘빛 PBR 커튼월 글래스 재질 (역광에서도 밝고 투명한 크리스털 룩)
+    const matLotteGlass = new THREE.MeshStandardMaterial({
+      color: 0xc4e5fc,
+      metalness: 0.18,
+      roughness: 0.12,
+      emissive: 0x1e3a5f,
+      emissiveIntensity: 0.28
+    });
+    const matLotteSpandrel = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      metalness: 0.2,
+      roughness: 0.2,
+      emissive: 0x223344,
+      emissiveIntensity: 0.15
+    });
+
+    // 1층~102층 (0m ~ 430m): 유려한 곡면 테이퍼드 글래스 타워
+    const towerBodyGeo = new THREE.CylinderGeometry(12, 38, 430, 32, 20);
+    const towerBody = new THREE.Mesh(towerBodyGeo, matLotteGlass);
+    towerBody.position.set(lotteBasePos.x, lotteBasePos.y + 215, lotteBasePos.z);
+    lotteGroup.add(towerBody);
+
+    // 16개 층별 수평 알루미늄 다이아그리드 악센트 링 (하얗게 빛나는 층간 라인)
+    for (let ringY = 25; ringY <= 420; ringY += 26) {
+      const ringRadius = 38 - (ringY / 430) * 26;
+      const ringGeo = new THREE.TorusGeometry(ringRadius + 0.35, 0.45, 8, 32);
+      const ringMesh = new THREE.Mesh(ringGeo, matLotteSpandrel);
+      ringMesh.rotation.x = Math.PI / 2;
+      ringMesh.position.set(lotteBasePos.x, lotteBasePos.y + ringY, lotteBasePos.z);
+      lotteGroup.add(ringMesh);
+    }
+
+    // 103층~123층 (430m ~ 555m): 롯데월드타워 고유의 두 갈래 첨탑 랜턴 (East/West Twin Spires)
+    const spireLeft = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.0, 6.0, 125, 16),
+      matLotteGlass
+    );
+    spireLeft.position.set(lotteBasePos.x - 5.5, lotteBasePos.y + 430 + 62.5, lotteBasePos.z);
+    spireLeft.rotation.z = 0.03;
+    lotteGroup.add(spireLeft);
+
+    const spireRight = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.0, 6.0, 125, 16),
+      matLotteGlass
+    );
+    spireRight.position.set(lotteBasePos.x + 5.5, lotteBasePos.y + 430 + 62.5, lotteBasePos.z);
+    spireRight.rotation.z = -0.03;
+    lotteGroup.add(spireRight);
+
+    // 첨탑 중앙 수평 차양 그릴
+    const matLouver = new THREE.MeshStandardMaterial({ color: 0xd8e2ec, metalness: 0.8, roughness: 0.3 });
+    for (let lz = 438; lz <= 542; lz += 10.0) {
+      const louver = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.5, 6.0), matLouver);
+      louver.position.set(lotteBasePos.x, lotteBasePos.y + lz, lotteBasePos.z);
+      lotteGroup.add(louver);
+    }
+
+    // 555m 최정상 항공 장애등 (붉은색 점멸 비콘)
+    const matBeaconRed = new THREE.MeshBasicMaterial({ color: 0xff1122 });
+    const beaconL = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), matBeaconRed);
+    beaconL.position.set(lotteBasePos.x - 7.0, lotteBasePos.y + 555, lotteBasePos.z);
+    lotteGroup.add(beaconL);
+
+    const beaconR = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), matBeaconRed);
+    beaconR.position.set(lotteBasePos.x + 7.0, lotteBasePos.y + 555, lotteBasePos.z);
+    lotteGroup.add(beaconR);
+
+    const beaconLight = new THREE.PointLight(0xff1122, 2.5, 180);
+    beaconLight.position.set(lotteBasePos.x, lotteBasePos.y + 555, lotteBasePos.z);
+    lotteGroup.add(beaconLight);
+
+    scene.add(lotteGroup);
+
+    // ------------------------------------------------------------
+    // 10. 10량 편성 서울교통공사 2호선 전동차 & 3호차 파노라마 실내
+    // (스크린샷 1 & 4와 100% 일치: 청록색 버킷 시트, 흰색 곡면 칸막이, 삼각 손잡이)
+    // ------------------------------------------------------------
+    const trainTrainGroup = new THREE.Group();
+    scene.add(trainTrainGroup);
+
+    const NUM_CARS = 10;
+    const CAR_SPACING = 24.8;
+    const cars = [];
+
+    function buildSeoulMetroInterior() {
+      const interior = new THREE.Group();
+
+      const interiorLight = new THREE.PointLight(0xfffaea, 1.4, 18);
+      interiorLight.position.set(0, 2.1, 0);
+      interior.add(interiorLight);
+
+      const matFloor = new THREE.MeshStandardMaterial({ color: 0x6e767e, roughness: 0.75 });
+      const floor = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.08, 23.5), matFloor);
+      floor.position.set(0, -0.04, 0);
+      interior.add(floor);
+
+      const matGreenLine = new THREE.MeshStandardMaterial({ color: 0x00a84d, roughness: 0.45 });
+      const greenLine = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 23.2), matGreenLine);
+      greenLine.rotation.x = -Math.PI / 2;
+      greenLine.position.set(0, 0.005, 0);
+      interior.add(greenLine);
+
+      const matCeiling = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5 });
+      const ceiling = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.06, 23.5), matCeiling);
+      ceiling.position.set(0, 2.38, 0);
+      interior.add(ceiling);
+
+      const matLightGlow = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xfffae8,
+        emissiveIntensity: 0.95,
+        roughness: 0.2
+      });
+      const matLightFrame = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+
+      [-0.55, 0.55].forEach(lx => {
+        const lightBox = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.06, 21.0), matLightFrame);
+        lightBox.position.set(lx, 2.34, 0);
+        interior.add(lightBox);
+
+        const lightStrip = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 20.8), matLightGlow);
+        lightStrip.rotation.x = Math.PI / 2;
+        lightStrip.position.set(lx, 2.308, 0);
+        interior.add(lightStrip);
+      });
+
+      const matTealSeat = new THREE.MeshStandardMaterial({
+        color: 0x16424e,
+        roughness: 0.38,
+        metalness: 0.08
+      });
+      const matSeatPiping = new THREE.MeshStandardMaterial({
+        color: 0x3d9ab0,
+        roughness: 0.3
+      });
+      const matSeatWhiteDivider = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        roughness: 0.35
+      });
+      const matWhiteStrap = new THREE.MeshStandardMaterial({
+        color: 0xf1f5f9,
+        roughness: 0.32
+      });
+
+      // 노약자/임산부 배려석 (핑크 톤) & 일반석 (틸 블루)
+      const matPinkSeat = new THREE.MeshStandardMaterial({ color: 0xd946ef, roughness: 0.4 });
+
+      function create7SeatBench(xSide, zCenter, isPriority = false) {
+        const benchGroup = new THREE.Group();
+        const seatWidth = 0.44;
+        const totalSeats = 7;
+        const startZ = -(totalSeats * seatWidth) / 2 + seatWidth / 2;
+        const seatMat = isPriority ? matPinkSeat : matTealSeat;
+
+        for (let i = 0; i < totalSeats; i++) {
+          const sz = startZ + i * seatWidth;
+          const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.14, 0.42), seatMat);
+          cushion.position.set(xSide * 1.16, 0.42, sz);
+          benchGroup.add(cushion);
+
+          const backrest = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.58, 0.42), seatMat);
+          backrest.position.set(xSide * 1.38, 0.74, sz);
+          backrest.rotation.z = xSide * 0.12;
+          benchGroup.add(backrest);
+
+          const rim = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.60, 0.03), matSeatPiping);
+          rim.position.set(xSide * 1.35, 0.74, sz + seatWidth / 2 - 0.015);
+          benchGroup.add(rim);
+        }
+
+        [-1, 1].forEach(endSign => {
+          const divZ = (totalSeats * seatWidth) / 2 * endSign;
+          const divider = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.92, 0.05), matSeatWhiteDivider);
+          divider.position.set(xSide * 1.15, 0.68, divZ);
+          benchGroup.add(divider);
+
+          const armrest = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.72, 12), matStainlessSteel);
+          armrest.rotation.x = Math.PI / 2;
+          armrest.position.set(xSide * 0.82, 0.72, divZ);
+          benchGroup.add(armrest);
+
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 2.38, 12), matStainlessSteel);
+          pole.position.set(xSide * 0.82, 1.19, divZ);
+          benchGroup.add(pole);
+        });
+
+        // 좌석 상단 스테인리스 선반 (Luggage Rack)
+        const rackPipe1 = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, totalSeats * seatWidth, 8), matStainlessSteel);
+        rackPipe1.rotation.x = Math.PI / 2;
+        rackPipe1.position.set(xSide * 1.12, 1.82, 0);
+        benchGroup.add(rackPipe1);
+
+        const rackPipe2 = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, totalSeats * seatWidth, 8), matStainlessSteel);
+        rackPipe2.rotation.x = Math.PI / 2;
+        rackPipe2.position.set(xSide * 1.32, 1.82, 0);
+        benchGroup.add(rackPipe2);
+
+        benchGroup.position.set(0, 0, zCenter);
+        return benchGroup;
+      }
+
+      interior.add(create7SeatBench(1, -4.5, false));
+      interior.add(create7SeatBench(1, 4.5, true)); // 임산부/교통약자 배려석
+      interior.add(create7SeatBench(-1, -4.5, false));
+      interior.add(create7SeatBench(-1, 4.5, false));
+
+      // 천장 중앙 듀얼 LCD 종합안내 디스플레이 모니터 (천장 브래킷 고정)
+      const lcdCanvas = document.createElement("canvas");
+      lcdCanvas.width = 512;
+      lcdCanvas.height = 128;
+      const lctx = lcdCanvas.getContext("2d");
+      lctx.fillStyle = "#0a1118";
+      lctx.fillRect(0, 0, 512, 128);
+      lctx.fillStyle = "#00a84d";
+      lctx.fillRect(0, 0, 512, 24);
+      lctx.fillStyle = "#ffffff";
+      lctx.font = "bold 16px sans-serif";
+      lctx.fillText("SEOUL METRO LINE 2 / 서울교통공사 2호선", 16, 18);
+
+      lctx.fillStyle = "#1e293b";
+      lctx.fillRect(12, 34, 238, 82);
+      lctx.fillStyle = "#10b981";
+      lctx.font = "bold 20px sans-serif";
+      lctx.fillText("이번 역 : 잠실나루", 24, 64);
+      lctx.fillStyle = "#94a3b8";
+      lctx.font = "16px sans-serif";
+      lctx.fillText("Next : Jamsilnaru", 24, 92);
+
+      lctx.fillStyle = "#1e293b";
+      lctx.fillRect(262, 34, 238, 82);
+      lctx.fillStyle = "#38bdf8";
+      lctx.font = "bold 20px sans-serif";
+      lctx.fillText("다음 역 : 잠실", 274, 64);
+      lctx.fillStyle = "#94a3b8";
+      lctx.font = "16px sans-serif";
+      lctx.fillText("After : Jamsil (2·8호선)", 274, 92);
+
+      const lcdTex = new THREE.CanvasTexture(lcdCanvas);
+      const lcdMat = new THREE.MeshBasicMaterial({ map: lcdTex });
+      [-4.0, 4.0].forEach(mz => {
+        const lcdBox = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.42, 0.08), matSeatWhiteDivider);
+        lcdBox.position.set(0, 2.05, mz);
+        const lcdScreen = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 0.38), lcdMat);
+        lcdScreen.position.set(0, 2.05, mz - 0.042);
+        interior.add(lcdBox);
+        interior.add(lcdScreen);
+      });
+
+      // 좌우 천장 손잡이 봉 & 교차 높이 삼각 손잡이
+      [-0.82, 0.82].forEach(px => {
+        const longPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 22.0, 12), matStainlessSteel);
+        longPipe.rotation.x = Math.PI / 2;
+        longPipe.position.set(px, 1.98, 0);
+        interior.add(longPipe);
+
+        for (let sz = -9.5; sz <= 9.5; sz += 0.85) {
+          const strapLen = (Math.round(sz * 10) % 2 === 0) ? 0.18 : 0.24; // 높낮이 조절 손잡이
+          const strap = new THREE.Mesh(new THREE.BoxGeometry(0.02, strapLen, 0.015), matWhiteStrap);
+          strap.position.set(px, 1.98 - strapLen / 2, sz);
+          interior.add(strap);
+
+          const triRing = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.012, 6, 3), matWhiteStrap);
+          triRing.rotation.z = Math.PI;
+          triRing.position.set(px, 1.98 - strapLen - 0.065, sz);
+          interior.add(triRing);
+        }
+      });
+
+      // 단부 연결벽 및 통로문 & 비상인터폰
+      [-11.5, 11.5].forEach(wz => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.4, 0.15), matCeiling);
+        wall.position.set(0, 1.2, wz);
+        interior.add(wall);
+
+        // 비상 통화 장치 (SOS Red Box)
+        const sosBox = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 0.06), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+        sosBox.position.set(1.15, 1.25, wz + (wz > 0 ? -0.08 : 0.08));
+        interior.add(sosBox);
+
+        // 통로문 상단 LED 안내기
+        const signCanvas = document.createElement("canvas");
+        signCanvas.width = 512;
+        signCanvas.height = 64;
+        const sctx = signCanvas.getContext("2d");
+        sctx.fillStyle = "#0c1520";
+        sctx.fillRect(0, 0, 512, 64);
+        sctx.fillStyle = "#00a84d";
+        sctx.font = "bold 26px sans-serif";
+        sctx.textAlign = "center";
+        sctx.textBaseline = "middle";
+        sctx.fillText("2호선 외선순환  Next: 잠실나루", 256, 32);
+        const signTex = new THREE.CanvasTexture(signCanvas);
+        const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+        const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.22), signMat);
+        signMesh.position.set(0, 2.05, wz + (wz > 0 ? -0.09 : 0.09));
+        if (wz > 0) signMesh.rotation.y = Math.PI;
+        interior.add(signMesh);
+      });
+
+      [-1.46, 1.46].forEach(wx => {
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 21.5, 12), matStainlessSteel);
+        bar.rotation.x = Math.PI / 2;
+        bar.position.set(wx, 0.72, 0);
+        interior.add(bar);
+      });
+
+      const matWindowPillar = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.5 });
+      [-10.0, -5.0, 0.0, 5.0, 10.0].forEach(pz => {
+        const pR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.38, 0.22), matWindowPillar);
+        pR.position.set(1.48, 1.19, pz);
+        interior.add(pR);
+
+        const pL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.38, 0.22), matWindowPillar);
+        pL.position.set(-1.48, 1.19, pz);
+        interior.add(pL);
+      });
+
+      return interior;
+    }
+
+    function buildSeoulMetroCarExterior(isLeading, isPassengerCar, carIdx) {
+      const carGroup = new THREE.Group();
+
+      const matBody = new THREE.MeshStandardMaterial({ color: 0xdce0e4, metalness: 0.72, roughness: 0.28 });
+      const matStainlessBead = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.85, roughness: 0.2 });
+      const matGreenStripe = new THREE.MeshStandardMaterial({ color: 0x00a84d, roughness: 0.35 });
+      const matDarkGlass = new THREE.MeshStandardMaterial({ color: 0x101b24, roughness: 0.08, metalness: 0.9, transparent: true, opacity: 0.65 });
+      const matDoorRubber = new THREE.MeshBasicMaterial({ color: 0x181818 });
+      const matDoorYellow = new THREE.MeshBasicMaterial({ color: 0xfacc15 }); // 도어 안전 경고 노란선
+      const matDoorLamp = new THREE.MeshBasicMaterial({ color: 0xf59e0b }); // 도어 개폐 주황 램프
+      const matBogie = new THREE.MeshStandardMaterial({ color: 0x2e343b, metalness: 0.75, roughness: 0.5 });
+      const matAirSpring = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+      const matWheel = new THREE.MeshStandardMaterial({ color: 0x25282c, metalness: 0.9, roughness: 0.18 });
+      const matBrakeDisc = new THREE.MeshStandardMaterial({ color: 0x8a929b, metalness: 0.92, roughness: 0.15 });
+      const matUnderEquipment = new THREE.MeshStandardMaterial({ color: 0x23272b, roughness: 0.7 });
+      const matAirTank = new THREE.MeshStandardMaterial({ color: 0x3d434a, metalness: 0.6, roughness: 0.4 });
+      const matPantoRed = new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.3 }); // 애자 절연체
+      const matPantoSteel = new THREE.MeshStandardMaterial({ color: 0xb0bec5, metalness: 0.9, roughness: 0.2 });
+      const matLedAmber = new THREE.MeshBasicMaterial({ color: 0xffa000 }); // LED 행선판
+
+      if (!isPassengerCar) {
+        // 일반 객차 외벽
+        const body = new THREE.Mesh(new THREE.BoxGeometry(3.14, 2.82, 23.5), matBody);
+        body.position.set(0, 1.41, 0);
+        carGroup.add(body);
+
+        // 2호선 시그니처 초록 띠 (측면 상단 & 중앙)
+        [-1.59, 1.59].forEach(sx => {
+          const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.36, 23.5), matGreenStripe);
+          stripe.position.set(sx, 1.35, 0);
+          carGroup.add(stripe);
+
+          const thinStripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 23.5), matGreenStripe);
+          thinStripe.position.set(sx, 2.72, 0);
+          carGroup.add(thinStripe);
+
+          // 스테인리스 차체 3열 비드 주름 (Bead Corrugation)
+          [-0.14, 0.0, 0.14].forEach(by => {
+            const bead = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 23.4), matStainlessBead);
+            bead.position.set(sx + Math.sign(sx) * 0.015, 0.72 + by, 0);
+            carGroup.add(bead);
+          });
+
+          // 측면 4개 출입문 세부 표현 (도어 틈새, 창문, 노란 안전띠, 상단 작동 램프)
+          [-7.8, -2.6, 2.6, 7.8].forEach(dz => {
+            const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.1, 1.4), matDoorRubber);
+            doorFrame.position.set(sx + Math.sign(sx) * 0.01, 1.25, dz);
+            carGroup.add(doorFrame);
+
+            // 도어 창문 2개
+            [-0.32, 0.32].forEach(dwx => {
+              const dWin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.42), matDarkGlass);
+              dWin.position.set(sx + Math.sign(sx) * 0.02, 1.45, dz + dwx);
+              carGroup.add(dWin);
+            });
+
+            // 출입문 중앙 노란색 안전 경고 라인
+            const dLine = new THREE.Mesh(new THREE.BoxGeometry(0.065, 1.9, 0.04), matDoorYellow);
+            dLine.position.set(sx + Math.sign(sx) * 0.02, 1.25, dz);
+            carGroup.add(dLine);
+
+            // 출입문 상단 작동 표시등 (Amber Lamp)
+            const dLamp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.12), matDoorLamp);
+            dLamp.position.set(sx + Math.sign(sx) * 0.02, 2.38, dz);
+            carGroup.add(dLamp);
+          });
+
+          // 승객 대형 창문들
+          [-5.2, 0.0, 5.2].forEach(wz => {
+            const win = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.96, 2.4), matDarkGlass);
+            win.position.set(sx, 1.85, wz);
+            carGroup.add(win);
+          });
+
+          // 측면 LED 행선안내기 [2호선 순환 | LINE 2]
+          const ledBoard = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.18), matLedAmber);
+          ledBoard.position.set(sx + Math.sign(sx) * 0.03, 2.48, 0);
+          if (sx < 0) ledBoard.rotation.y = -Math.PI / 2;
+          else ledBoard.rotation.y = Math.PI / 2;
+          carGroup.add(ledBoard);
+        });
+      } else {
+        // 3호차 파노라마 승객차 외벽 (창밖 조망 극대화 & 바닥 클리핑 제거)
+        const wallLowerL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 23.5), matBody);
+        wallLowerL.position.set(-1.52, 0.375, 0);
+        carGroup.add(wallLowerL);
+
+        const wallLowerR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 23.5), matBody);
+        wallLowerR.position.set(1.52, 0.23, 0);
+        carGroup.add(wallLowerR);
+
+        const wallUpperL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 23.5), matBody);
+        wallUpperL.position.set(-1.52, 2.19, 0);
+        carGroup.add(wallUpperL);
+
+        const wallUpperR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.36, 23.5), matBody);
+        wallUpperR.position.set(1.52, 2.22, 0);
+        carGroup.add(wallUpperR);
+
+        const stripeR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.30, 23.5), matGreenStripe);
+        stripeR.position.set(1.58, 0.31, 0);
+        carGroup.add(stripeR);
+      }
+
+      // 지붕 위 냉난방 공조기(HVAC) 유닛 2세트 & 에어 루버
+      [-5.5, 5.5].forEach(hz => {
+        const hvac = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.48, 4.2), matBody);
+        hvac.position.set(0, 2.96, hz);
+        carGroup.add(hvac);
+
+        // 공조기 팬 그릴 2개
+        [-1.1, 1.1].forEach(fz => {
+          const fanGrille = new THREE.Mesh(new THREE.CylinderGeometry(0.48, 0.48, 0.08, 16), matUnderEquipment);
+          fanGrille.position.set(0, 3.22, hz + fz);
+          carGroup.add(fanGrille);
+        });
+      });
+
+      // 동력차(M차: 2, 5, 8호차) 지붕 위 정밀 싱글암 팬터그래프 (집전장치)
+      if (carIdx === 2 || carIdx === 5 || carIdx === 8) {
+        const pantoGroup = new THREE.Group();
+        // 4개 애자 받침대
+        [-0.7, 0.7].forEach(px => {
+          [-0.8, 0.8].forEach(pz => {
+            const ins = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.25, 8), matPantoRed);
+            ins.position.set(px, 2.95, pz);
+            pantoGroup.add(ins);
+          });
+        });
+        // 팬터그래프 베이스 프레임
+        const pBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.08, 1.8), matPantoSteel);
+        pBase.position.set(0, 3.12, 0);
+        pantoGroup.add(pBase);
+
+        // 하부 암 (각도 상승)
+        const lowerArm = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.45, 8), matPantoSteel);
+        lowerArm.position.set(0, 3.75, -0.45);
+        lowerArm.rotation.x = 0.55;
+        pantoGroup.add(lowerArm);
+
+        // 상부 암 (전차선 방향 상승)
+        const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.55, 8), matPantoSteel);
+        upperArm.position.set(0, 4.52, 0.15);
+        upperArm.rotation.x = -0.52;
+        pantoGroup.add(upperArm);
+
+        // 집전판 (가공전차선 y=5.2m 접촉부 & 좌우 혼 Horn)
+        const collectorShoe = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.06, 0.22), matPantoSteel);
+        collectorShoe.position.set(0, 5.18, 0.55);
+        pantoGroup.add(collectorShoe);
+
+        pantoGroup.position.set(0, 0, -8.2);
+        carGroup.add(pantoGroup);
+      }
+
+      // 하부 전장품 (VVVF-IGBT 인버터, 보조전원 SIV, 메인 에어탱크, 배터리함)
+      const underGroup = new THREE.Group();
+      // VVVF 인버터 쿨링 박스 (방열핀 포함)
+      const vvvfBox = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.65, 3.6), matUnderEquipment);
+      vvvfBox.position.set(-0.55, 0.18, 0);
+      underGroup.add(vvvfBox);
+
+      // 보조전원장치 (SIV) 박스
+      const sivBox = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.62, 2.4), matUnderEquipment);
+      sivBox.position.set(0.65, 0.18, -1.2);
+      underGroup.add(sivBox);
+
+      // 에어 브레이크 공기탱크 실린더 2개 (황동 밸브 캡)
+      [-0.45, 0.45].forEach(tx => {
+        const airTank = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 2.2, 12), matAirTank);
+        airTank.rotation.x = Math.PI / 2;
+        airTank.position.set(tx, 0.16, 2.8);
+        underGroup.add(airTank);
+      });
+      carGroup.add(underGroup);
+
+      // 볼스터리스 대차 & 공기스프링 & 디스크 브레이크 & 차륜
+      [-7.5, 7.5].forEach(bz => {
+        const bogie = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.38, 3.2), matBogie);
+        bogie.position.set(0, -0.22, bz);
+        carGroup.add(bogie);
+
+        // 중앙 에어스프링 벨로우즈 (좌우 완충 장치)
+        [-1.15, 1.15].forEach(ax => {
+          const airSpring = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 0.28, 12), matAirSpring);
+          airSpring.position.set(ax, 0.05, bz);
+          carGroup.add(airSpring);
+        });
+
+        // 4개의 강철 차륜 (승객차 3호차에서는 실내 바닥 튀어나옴 방지를 위해 차체 밑에만 안전하게 배치)
+        if (!isPassengerCar) {
+          [-1.0, 1.0].forEach(wz => {
+            [-1.25, 1.25].forEach(wx => {
+              const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.18, 16), matWheel);
+              wheel.rotation.z = Math.PI / 2;
+              wheel.position.set(wx, -0.22, bz + wz);
+              carGroup.add(wheel);
+
+              // 벤틸레이티드 브레이크 디스크
+              const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.04, 16), matBrakeDisc);
+              disc.rotation.z = Math.PI / 2;
+              disc.position.set(wx + (wx > 0 ? 0.08 : -0.08), -0.22, bz + wz);
+              carGroup.add(disc);
+
+              // 휠 플랜지 림
+              const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.04, 16), matWheel);
+              flange.rotation.z = Math.PI / 2;
+              flange.position.set(wx + (wx > 0 ? -0.09 : 0.09), -0.22, bz + wz);
+              carGroup.add(flange);
+            });
+          });
+        } else {
+          // 승객 3호차: 바닥(y=0) 아래에 완전히 숨겨진 안전 대차 바퀴
+          [-1.0, 1.0].forEach(wz => {
+            [-1.25, 1.25].forEach(wx => {
+              const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.18, 16), matWheel);
+              wheel.rotation.z = Math.PI / 2;
+              wheel.position.set(wx, -0.42, bz + wz);
+              carGroup.add(wheel);
+            });
+          });
+        }
+      });
+
+      // 차량 간 연결막 (아코디언 갱웨이 자바라 - 차간 틈새 완벽 차폐)
+      [-11.75, 11.75].forEach(gz => {
+        const bellows = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.25, 0.8), matDoorRubber);
+        bellows.position.set(0, 1.22, gz);
+        carGroup.add(bellows);
+      });
+
+      // 선두차 (2000호대 운전실 전면 유선형 캡 & 비상탈출문 & 와이퍼 & 커플러 & LED 헤드라이트)
+      if (isLeading) {
+        const cabNose = new THREE.Mesh(new THREE.BoxGeometry(3.14, 2.75, 2.2), matBody);
+        cabNose.position.set(0, 1.38, -12.5);
+        carGroup.add(cabNose);
+
+        const cabWin = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.15, 0.1), matDarkGlass);
+        cabWin.position.set(0, 1.88, -13.62);
+        carGroup.add(cabWin);
+
+        // 전면 와이퍼 2조 (Wiper Arms & Blades)
+        [-0.65, 0.65].forEach(wx => {
+          const wiper = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.45, 0.03), matDoorRubber);
+          wiper.position.set(wx, 1.62, -13.68);
+          wiper.rotation.z = 0.25;
+          carGroup.add(wiper);
+        });
+
+        // 전면 중앙 비상탈출문 (Emergency Egress Door)
+        const emDoor = new THREE.Mesh(new THREE.BoxGeometry(0.72, 1.9, 0.04), matDoorRubber);
+        emDoor.position.set(0, 1.25, -13.62);
+        carGroup.add(emDoor);
+
+        const cabGreen = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.48, 2.2), matGreenStripe);
+        cabGreen.position.set(0, 1.35, -12.5);
+        carGroup.add(cabGreen);
+
+        // 안티클라이머 충돌 방지 톱니 범퍼
+        const antiClimber = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 0.22), matBogie);
+        antiClimber.position.set(0, 0.38, -13.65);
+        carGroup.add(antiClimber);
+
+        // 밀착식 자동연결기 (Tightlock Coupler)
+        const coupler = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.28, 0.75), matBogie);
+        coupler.position.set(0, 0.32, -14.05);
+        carGroup.add(coupler);
+
+        // 전면 상단 고해상도 LED 행선판 [2호선 외선순환 | Inner Circle]
+        const rollCanvas = document.createElement("canvas");
+        rollCanvas.width = 512;
+        rollCanvas.height = 128;
+        const rctx = rollCanvas.getContext("2d");
+        rctx.fillStyle = "#0c1520";
+        rctx.fillRect(0, 0, 512, 128);
+        rctx.fillStyle = "#10b981";
+        rctx.font = "bold 38px sans-serif";
+        rctx.textAlign = "center";
+        rctx.fillText("2호선 외선순환", 256, 52);
+        rctx.fillStyle = "#f59e0b";
+        rctx.font = "24px sans-serif";
+        rctx.fillText("Inner Circle · 2032", 256, 96);
+        const rollTex = new THREE.CanvasTexture(rollCanvas);
+        const frontRollsign = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.30), new THREE.MeshBasicMaterial({ map: rollTex }));
+        frontRollsign.position.set(0, 2.62, -13.58);
+        frontRollsign.rotation.y = Math.PI;
+        carGroup.add(frontRollsign);
+
+        // 듀얼 초고휘도 LED 전조등 (크롬 베젤 포함 헤드라이트)
+        const matHeadlight = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        [-0.85, 0.85].forEach(hx => {
+          const hlRim = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.04, 16), matStainlessSteel);
+          hlRim.rotation.x = Math.PI / 2;
+          hlRim.position.set(hx, 0.95, -13.61);
+          carGroup.add(hlRim);
+
+          const hl = new THREE.Mesh(new THREE.CircleGeometry(0.14, 16), matHeadlight);
+          hl.position.set(hx, 0.95, -13.63);
+          hl.rotation.y = Math.PI;
+          carGroup.add(hl);
+        });
+
+        // 붉은색 후미 표시등
+        const matTaillight = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+        [-1.25, 1.25].forEach(tx => {
+          const tl = new THREE.Mesh(new THREE.CircleGeometry(0.08, 12), matTaillight);
+          tl.position.set(tx, 0.95, -13.62);
+          tl.rotation.y = Math.PI;
+          carGroup.add(tl);
+        });
+
+        // 선두차 전방 투광 조명
+        const headSpot = new THREE.PointLight(0xfff4d6, 3.0, 75);
+        headSpot.position.set(0, 1.2, -14.5);
+        carGroup.add(headSpot);
+      }
+
+      return carGroup;
+    }
+
+    for (let i = 0; i < NUM_CARS; i++) {
+      const carRoot = new THREE.Group();
+      const isLead = (i === NUM_CARS - 1);
+      const isPassenger = (i === 2);
+      const exterior = buildSeoulMetroCarExterior(isLead, isPassenger, i);
+
+      if (isPassenger) {
+        const interior = buildSeoulMetroInterior();
+        carRoot.add(interior);
+      }
+
+      carRoot.add(exterior);
+      scene.add(carRoot);
+      cars.push(carRoot);
+    }
+    window.cars = cars;
+    window.lotteGroup = lotteGroup;
+    console.log("Seoul Metro 10-car consist loaded with breathtaking Han River view!");
+
+    // ------------------------------------------------------------
+    // 10. 시점 시스템 & V 키 / WASD 이동 시스템 (사용자 요청 완벽 대응)
+    // ------------------------------------------------------------
+    let viewMode = 2; // 기본: 2 승객 창가 시점 (스크린샷 1 & 4 일치)
+    let orbitYaw = 0.0; // 한강과 창밖을 정면으로 바라보는 최적 각도
+    let orbitPitch = -0.02;
+    let cameraDistance = 24.0;
+
+    let isSeated = true;
+    let passengerLocalPos = new THREE.Vector3(-0.65, 1.25, 0.0);
+    let targetEyeY = 1.25;
+    let curEyeY = 1.25;
+
+    const allCamBtns = document.querySelectorAll(".footer-cam-btn[data-cam]");
+
+    function setViewMode(mode) {
+      viewMode = mode;
+      allCamBtns.forEach(btn => {
+        btn.classList.toggle("active", parseInt(btn.dataset.cam) === mode);
+      });
+
+      if (mode === 2) {
+        bottomDash.style.display = "none";
+        passengerFooter.style.display = "flex";
+        actionHint.style.display = "none";
+        cardAlignHud.style.display = "flex";
+        routeModeSub.textContent = "HAN RIVER LINE / 승객 · 자동 운전";
+        missionHeadline.textContent = "자동 운전으로 이동 중";
+        topGuidance.innerHTML = `<span id="guidance-car">3호차</span> · WASD 이동 · 우클릭 둘러보기 · V 시점 전환 · E 앉기`;
+        orbitPitch = -0.06;
+        orbitYaw = 0.0;
+      } else if (mode === 1) {
+        bottomDash.style.display = "flex";
+        passengerFooter.style.display = "none";
+        actionHint.style.display = "block";
+        cardAlignHud.style.display = "flex";
+        routeModeSub.textContent = "HAN RIVER LINE / 운전실 직접 제어";
+        missionHeadline.textContent = "잠실나루까지 운행";
+        topGuidance.textContent = "운전실 · WASD 이동 · V 시점 전환 · 마우스 둘러보기";
+        orbitPitch = -0.04;
+        orbitYaw = 0;
+      } else if (mode === 3) {
+        bottomDash.style.display = "flex";
+        passengerFooter.style.display = "none";
+        actionHint.style.display = "block";
+        cardAlignHud.style.display = "none";
+        routeModeSub.textContent = "HAN RIVER LINE / 외부 추적";
+        missionHeadline.textContent = "잠실나루까지 운행";
+        topGuidance.textContent = "외부 시점 · 직접 운전 중 · V 시점 전환";
+        orbitPitch = 0.22;
+        orbitYaw = 0.32;
+        cameraDistance = 26.0;
+      } else if (mode === 4) {
+        bottomDash.style.display = "flex";
+        passengerFooter.style.display = "none";
+        actionHint.style.display = "block";
+        cardAlignHud.style.display = "none";
+        routeModeSub.textContent = "HAN RIVER LINE / 선로 옆 시점";
+        missionHeadline.textContent = "잠실나루까지 운행";
+        topGuidance.textContent = "선로 옆 시점 · V 시점 전환";
+        orbitPitch = 0.14;
+        orbitYaw = 0.85;
+        cameraDistance = 16.0;
+      }
+    }
+
+    function cycleViewMode() {
+      const next = viewMode === 2 ? 3 : viewMode === 3 ? 4 : viewMode === 4 ? 1 : 2;
+      setViewMode(next);
+    }
+
+    allCamBtns.forEach(btn => {
+      btn.addEventListener("click", () => setViewMode(parseInt(btn.dataset.cam)));
+    });
+
+    const btnToggleV = document.querySelector("#btn-toggle-v");
+    if (btnToggleV) {
+      btnToggleV.addEventListener("click", () => cycleViewMode());
+    }
+
+    const curCamPos = new THREE.Vector3();
+    const curCamLook = new THREE.Vector3();
+
+    function updateCamera(dt) {
+      camera.up.set(0, 1, 0);
+
+      if (viewMode === 2) {
+        const car3 = cars[2];
+        const distFromLead = (NUM_CARS - 1 - 2) * CAR_SPACING;
+        let car3T = (progress - (distFromLead / routeLength)) % 1.0;
+        if (car3T < 0) car3T += 1.0;
+        const cf = routeFrameAt(car3T);
+
+        curEyeY += (targetEyeY - curEyeY) * Math.min(1.0, 8.0 * dt);
+
+        const eyePos = car3.position.clone()
+          .addScaledVector(cf.right, passengerLocalPos.x)
+          .addScaledVector(cf.tangent, passengerLocalPos.z)
+          .add(new THREE.Vector3(0, curEyeY - 0.72, 0));
+
+        camera.position.copy(eyePos);
+
+        const lookDir = new THREE.Vector3()
+          .addScaledVector(cf.right, Math.cos(orbitYaw))
+          .add(new THREE.Vector3(0, Math.sin(orbitPitch), 0))
+          .addScaledVector(cf.tangent, Math.sin(orbitYaw));
+
+        camera.lookAt(eyePos.clone().add(lookDir));
+        return;
+      }
+
+      if (viewMode === 1) {
+        const leadCar = cars[NUM_CARS - 1];
+        const cf = routeFrameAt(progress);
+        const cabEye = leadCar.position.clone()
+          .addScaledVector(cf.tangent, 13.8)
+          .add(new THREE.Vector3(0, 1.65, 0));
+
+        camera.position.copy(cabEye);
+        const clampedYaw = THREE.MathUtils.clamp(orbitYaw, -Math.PI * 0.45, Math.PI * 0.45);
+        const lookDir = new THREE.Vector3()
+          .addScaledVector(cf.right, Math.sin(clampedYaw))
+          .add(new THREE.Vector3(0, Math.sin(orbitPitch), 0))
+          .addScaledVector(cf.tangent, Math.cos(clampedYaw));
+        camera.lookAt(cabEye.clone().add(lookDir));
+        return;
+      }
+
+      if (viewMode === 3) {
+        const leadCar = cars[NUM_CARS - 1];
+        const cf = routeFrameAt(progress);
+
+        const dist = cameraDistance;
+        const h = dist * Math.sin(orbitPitch) + 5.8;
+        const gDist = dist * Math.cos(orbitPitch);
+
+        const targetPos = leadCar.position.clone()
+          .addScaledVector(cf.tangent, -gDist * Math.cos(orbitYaw))
+          .addScaledVector(cf.right, gDist * Math.sin(orbitYaw) + 4.8)
+          .add(new THREE.Vector3(0, h, 0));
+
+        const targetLook = leadCar.position.clone().add(new THREE.Vector3(0, 1.6, 0)).addScaledVector(cf.tangent, 3.0);
+
+        if (curCamPos.lengthSq() === 0 || curCamPos.distanceTo(targetPos) > 40.0) {
+          curCamPos.copy(targetPos);
+          curCamLook.copy(targetLook);
+        } else {
+          curCamPos.lerp(targetPos, Math.min(1.0, 9.0 * dt));
+          curCamLook.lerp(targetLook, Math.min(1.0, 11.0 * dt));
+        }
+
+        camera.position.copy(curCamPos);
+        camera.lookAt(curCamLook);
+        return;
+      }
+
+      if (viewMode === 4) {
+        const leadCar = cars[NUM_CARS - 1];
+        const cf = routeFrameAt(progress);
+        const sideEye = cf.p.clone()
+          .addScaledVector(cf.right, -5.5)
+          .addScaledVector(cf.tangent, 16.0)
+          .add(new THREE.Vector3(0, 2.5, 0));
+
+        const sideLook = leadCar.position.clone().add(new THREE.Vector3(0, 1.2, 0));
+        if (camera.position.distanceTo(sideEye) > 40.0) {
+          camera.position.copy(sideEye);
+        } else {
+          camera.position.lerp(sideEye, Math.min(1.0, 6.0 * dt));
+        }
+        camera.lookAt(sideLook);
+      }
+    }
+
+    // ------------------------------------------------------------
+    // 11. 열차 주행 물리 & WASD 이동 로직
+    // ------------------------------------------------------------
+    let trainSpeed = 16.7; // 60 km/h 정속 운행
+    let progress = 0.38;   // 한강 한가운데서 출발
+    let started = true;
+    const keys = {};
+
+    function updatePhysics(dt) {
+      if (viewMode === 2) {
+        const isMoving = keys.KeyW || keys.KeyS || keys.KeyA || keys.KeyD;
+        if (isMoving && isSeated) {
+          isSeated = false;
+          targetEyeY = 1.68;
+        }
+
+        if (!isSeated) {
+          const moveSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 3.6 : 1.9;
+          // 카메라가 바라보는 시선 방향(lookDir)의 수평 전방 벡터 (Fwd)
+          const fwdX = Math.cos(orbitYaw);
+          const fwdZ = Math.sin(orbitYaw);
+          // 시선 기준 우측 스트레이프 벡터 (Right)
+          const rgtX = Math.sin(orbitYaw);
+          const rgtZ = -Math.cos(orbitYaw);
+
+          // W: 바라보는 방향으로 정확히 전진
+          if (keys.KeyW) {
+            passengerLocalPos.x += fwdX * moveSpeed * dt;
+            passengerLocalPos.z += fwdZ * moveSpeed * dt;
+          }
+          // S: 바라보는 반대 방향으로 후진
+          if (keys.KeyS) {
+            passengerLocalPos.x -= fwdX * moveSpeed * dt;
+            passengerLocalPos.z -= fwdZ * moveSpeed * dt;
+          }
+          // D: 우측 이동
+          if (keys.KeyD) {
+            passengerLocalPos.x += rgtX * moveSpeed * dt;
+            passengerLocalPos.z += rgtZ * moveSpeed * dt;
+          }
+          // A: 좌측 이동
+          if (keys.KeyA) {
+            passengerLocalPos.x -= rgtX * moveSpeed * dt;
+            passengerLocalPos.z -= rgtZ * moveSpeed * dt;
+          }
+
+          passengerLocalPos.x = THREE.MathUtils.clamp(passengerLocalPos.x, -1.15, 1.15);
+          passengerLocalPos.z = THREE.MathUtils.clamp(passengerLocalPos.z, -11.0, 11.0);
+        }
+      } else if (viewMode === 1) {
+        // 운전실 시점 마우스 & 시선 제어
+        if (keys.KeyW) orbitPitch = Math.min(0.65, orbitPitch + 0.8 * dt);
+        if (keys.KeyS) orbitPitch = Math.max(-0.65, orbitPitch - 0.8 * dt);
+        if (keys.KeyA) orbitYaw -= 1.2 * dt;
+        if (keys.KeyD) orbitYaw += 1.2 * dt;
+      } else if (viewMode === 3 || viewMode === 4) {
+        const camSpeed = 12.0;
+        if (keys.KeyW) cameraDistance = Math.max(8.0, cameraDistance - camSpeed * dt);
+        if (keys.KeyS) cameraDistance = Math.min(60.0, cameraDistance + camSpeed * dt);
+        if (keys.KeyA) orbitYaw -= 1.2 * dt;
+        if (keys.KeyD) orbitYaw += 1.2 * dt;
+      }
+
+      if (keys.ArrowUp) {
+        trainSpeed += 7.0 * dt;
+        mNotch.textContent = "역행";
+        mNotch.style.color = "#22c55e";
+      } else if (keys.ArrowDown || keys.Space) {
+        trainSpeed -= (keys.Space ? 20.0 : 10.0) * dt;
+        mNotch.textContent = "제동";
+        mNotch.style.color = "#f59e0b";
+      } else if (keys.KeyX) {
+        mNotch.textContent = "타행";
+        mNotch.style.color = "#22c55e";
+      }
+      trainSpeed = THREE.MathUtils.clamp(trainSpeed, 0, 25.0);
+
+      // 2호선 4각 순환선 무한 순환 운행 (끊김 없는 완벽한 루프 주행)
+      if (started) {
+        progress = (progress + (trainSpeed / routeLength) * dt) % 1.0;
+      }
+
+      // 10량 편성 각 차량을 4각 순환 선로 위에 매끄럽게 배치 (각 객차 완벽 곡선 관절 연동)
+      const trackOffset = 1.6; // 외선 순환 선로
+      for (let i = 0; i < NUM_CARS; i++) {
+        const carRoot = cars[i];
+        const distFromLead = (NUM_CARS - 1 - i) * CAR_SPACING;
+        let carT = (progress - (distFromLead / routeLength)) % 1.0;
+        if (carT < 0) carT += 1.0;
+        const cf = routeFrameAt(carT);
+
+        const carPos = cf.p.clone()
+          .addScaledVector(cf.right, trackOffset)
+          .add(new THREE.Vector3(0, 0.72, 0));
+
+        carRoot.position.copy(carPos);
+        const rotMat = new THREE.Matrix4();
+        rotMat.makeBasis(cf.right, cf.up, cf.tangent.clone().negate());
+        carRoot.quaternion.setFromRotationMatrix(rotMat);
+      }
+
+      updateCamera(dt);
+
+      const kmh = Math.round(trainSpeed * 3.6);
+      mSpeed.textContent = kmh;
+      const pct = Math.round(progress * 100);
+      mProgress.textContent = pct;
+      const remDist = Math.max(0, Math.round((1.0 - progress) * routeLength));
+      mDistance.textContent = remDist;
+      document.querySelector("#align-meters").textContent = Math.min(999, remDist);
+
+      // 4각 순환 구간별 실시간 정차역 및 안내 (강변 -> 잠실나루 -> 잠실 -> 올림픽대교 -> 구의 -> 강변)
+      if (progress < 0.25) {
+        routeModeSub.textContent = "2호선 4각 순환선 / 잠실철교 횡단 구간";
+        missionHeadline.textContent = "강변 → 잠실나루 (한강 횡단)";
+      } else if (progress < 0.50) {
+        routeModeSub.textContent = "2호선 4각 순환선 / 롯데타워 도심 구간";
+        missionHeadline.textContent = "잠실나루 → 잠실 (롯데타워 선회)";
+      } else if (progress < 0.75) {
+        routeModeSub.textContent = "2호선 4각 순환선 / 올림픽대교 횡단 구간";
+        missionHeadline.textContent = "잠실 → 구의 (올림픽대교 횡단)";
+      } else {
+        routeModeSub.textContent = "2호선 4각 순환선 / 강변북로 순환 구간";
+        missionHeadline.textContent = "구의 → 강변 (강변북로 고가)";
+      }
+
+      audio.update(kmh);
+    }
+
+    // ------------------------------------------------------------
+    // 12. 시간대 & 날씨 파티클 및 환경 제어 시스템
+    // ------------------------------------------------------------
+    const RAIN_COUNT = 6500;
+    const rainGeo = new THREE.BufferGeometry();
+    const rainPos = new Float32Array(RAIN_COUNT * 3);
+    for (let i = 0; i < RAIN_COUNT; i++) {
+      rainPos[i * 3 + 0] = (Math.random() - 0.5) * 450;
+      rainPos[i * 3 + 1] = Math.random() * 85 + 2;
+      rainPos[i * 3 + 2] = (Math.random() - 0.5) * 450;
+    }
+    rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPos, 3));
+    const rainMat = new THREE.PointsMaterial({
+      color: 0xbbddff,
+      size: 0.5,
+      transparent: true,
+      opacity: 0.7
+    });
+    const rainSystem = new THREE.Points(rainGeo, rainMat);
+    rainSystem.visible = false;
+    scene.add(rainSystem);
+
+    const SNOW_COUNT = 4000;
+    const snowGeo = new THREE.BufferGeometry();
+    const snowPos = new Float32Array(SNOW_COUNT * 3);
+    for (let i = 0; i < SNOW_COUNT; i++) {
+      snowPos[i * 3 + 0] = (Math.random() - 0.5) * 450;
+      snowPos[i * 3 + 1] = Math.random() * 85 + 2;
+      snowPos[i * 3 + 2] = (Math.random() - 0.5) * 450;
+    }
+    snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPos, 3));
+    const snowMat = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.65,
+      transparent: true,
+      opacity: 0.85
+    });
+    const snowSystem = new THREE.Points(snowGeo, snowMat);
+    snowSystem.visible = false;
+    scene.add(snowSystem);
+
+    const TIME_CONFIGS = {
+      morning: {
+        label: "아침",
+        icon: "🌅",
+        clock: "07:30",
+        sky: 0x8ec2eb,
+        fogNear: 1600,
+        fogFar: 7500,
+        sunPos: new THREE.Vector3(650, 580, 480),
+        sunColor: 0xfff5e6,
+        sunIntensity: 2.2,
+        hemiSky: 0xdcf0ff,
+        hemiGround: 0x3e4d5c,
+        hemiIntensity: 1.2,
+        waterSunCol: new THREE.Color(1.0, 0.96, 0.88),
+        waterSkyCol: new THREE.Color(0.55, 0.74, 0.94),
+        waterDeep: new THREE.Color(0.025, 0.12, 0.19),
+        waterShallow: new THREE.Color(0.065, 0.28, 0.35)
+      },
+      noon: {
+        label: "낮",
+        icon: "☀️",
+        clock: "13:00",
+        sky: 0x64a5d8,
+        fogNear: 2000,
+        fogFar: 8500,
+        sunPos: new THREE.Vector3(150, 850, 200),
+        sunColor: 0xffffff,
+        sunIntensity: 2.6,
+        hemiSky: 0xe8f4ff,
+        hemiGround: 0x4a5d6e,
+        hemiIntensity: 1.3,
+        waterSunCol: new THREE.Color(1.0, 1.0, 0.98),
+        waterSkyCol: new THREE.Color(0.42, 0.68, 0.92),
+        waterDeep: new THREE.Color(0.015, 0.14, 0.24),
+        waterShallow: new THREE.Color(0.05, 0.32, 0.42)
+      },
+      sunset: {
+        label: "노을",
+        icon: "🌇",
+        clock: "18:45",
+        sky: 0xdb6b42,
+        fogNear: 1200,
+        fogFar: 6500,
+        sunPos: new THREE.Vector3(-750, 240, -380),
+        sunColor: 0xff7324,
+        sunIntensity: 2.8,
+        hemiSky: 0xff8855,
+        hemiGround: 0x3a201c,
+        hemiIntensity: 0.9,
+        waterSunCol: new THREE.Color(1.2, 0.65, 0.35),
+        waterSkyCol: new THREE.Color(0.85, 0.42, 0.28),
+        waterDeep: new THREE.Color(0.12, 0.04, 0.06),
+        waterShallow: new THREE.Color(0.28, 0.12, 0.10)
+      },
+      night: {
+        label: "밤",
+        icon: "🌙",
+        clock: "21:30",
+        sky: 0x050914,
+        fogNear: 800,
+        fogFar: 5000,
+        sunPos: new THREE.Vector3(-350, 600, -350),
+        sunColor: 0x3a5585,
+        sunIntensity: 0.4,
+        hemiSky: 0x111c30,
+        hemiGround: 0x060b14,
+        hemiIntensity: 0.35,
+        waterSunCol: new THREE.Color(0.35, 0.5, 0.8),
+        waterSkyCol: new THREE.Color(0.06, 0.12, 0.22),
+        waterDeep: new THREE.Color(0.005, 0.012, 0.025),
+        waterShallow: new THREE.Color(0.012, 0.03, 0.06)
+      }
+    };
+
+    let currentTimePreset = "morning";
+    let currentWeatherPreset = "clear";
+
+    function applyEnv() {
+      const tc = TIME_CONFIGS[currentTimePreset];
+      const skyCol = new THREE.Color(tc.sky);
+      let fogN = tc.fogNear;
+      let fogF = tc.fogFar;
+      let sInt = tc.sunIntensity;
+
+      if (currentWeatherPreset === "cloudy") {
+        skyCol.lerp(new THREE.Color(0x8894a0), 0.45);
+        sInt *= 0.55;
+        fogF *= 0.75;
+      } else if (currentWeatherPreset === "rain") {
+        skyCol.lerp(new THREE.Color(0x455260), 0.65);
+        sInt *= 0.38;
+        fogN = Math.min(fogN, 550);
+        fogF = Math.min(fogF, 2800);
+      } else if (currentWeatherPreset === "fog") {
+        skyCol.lerp(new THREE.Color(0xb0bcc6), 0.7);
+        sInt *= 0.35;
+        fogN = 200;
+        fogF = 1600;
+      } else if (currentWeatherPreset === "snow") {
+        skyCol.lerp(new THREE.Color(0x9aa8b8), 0.5);
+        sInt *= 0.6;
+        fogN = Math.min(fogN, 800);
+        fogF = Math.min(fogF, 3800);
+      }
+
+      scene.background.copy(skyCol);
+      renderer.setClearColor(skyCol, 1.0);
+      scene.fog.color.copy(skyCol);
+      scene.fog.near = fogN;
+      scene.fog.far = fogF;
+
+      sunLight.position.copy(tc.sunPos);
+      sunLight.color.set(tc.sunColor);
+      sunLight.intensity = sInt;
+
+      hemiLight.color.set(tc.hemiSky);
+      hemiLight.groundColor.set(tc.hemiGround);
+      hemiLight.intensity = tc.hemiIntensity;
+
+      waterUniforms.uSunDir.value.copy(tc.sunPos).normalize();
+      waterUniforms.uSunCol.value.copy(tc.waterSunCol);
+      waterUniforms.uSkyCol.value.copy(skyCol);
+      waterUniforms.uDeepCol.value.copy(tc.waterDeep);
+      waterUniforms.uShallowCol.value.copy(tc.waterShallow);
+
+      rainSystem.visible = (currentWeatherPreset === "rain");
+      snowSystem.visible = (currentWeatherPreset === "snow");
+      audio.setRain(currentWeatherPreset === "rain");
+
+      document.querySelector("#clock-display").textContent = tc.clock;
+      document.querySelector("#time-icon").textContent = tc.icon;
+
+      const wLabels = {
+        clear: { label: "맑음", icon: "☀️" },
+        cloudy: { label: "흐림", icon: "☁️" },
+        rain: { label: "비", icon: "🌧️" },
+        fog: { label: "안개", icon: "🌫️" },
+        snow: { label: "눈", icon: "❄️" }
+      };
+      const wl = wLabels[currentWeatherPreset];
+      document.querySelector("#weather-display").textContent = wl.label;
+      document.querySelector("#weather-icon").textContent = wl.icon;
+
+      document.querySelectorAll(".env-btn[data-time]").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.time === currentTimePreset);
+      });
+      document.querySelectorAll(".env-btn[data-weather]").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.weather === currentWeatherPreset);
+      });
+    }
+
+    function setTime(preset) {
+      if (TIME_CONFIGS[preset]) {
+        currentTimePreset = preset;
+        applyEnv();
+      }
+    }
+
+    function setWeather(preset) {
+      currentWeatherPreset = preset;
+      applyEnv();
+    }
+
+    const timeKeys = ["morning", "noon", "sunset", "night"];
+    function cycleTime() {
+      const idx = timeKeys.indexOf(currentTimePreset);
+      setTime(timeKeys[(idx + 1) % timeKeys.length]);
+    }
+
+    const weatherKeys = ["clear", "cloudy", "rain", "fog", "snow"];
+    function cycleWeather() {
+      const idx = weatherKeys.indexOf(currentWeatherPreset);
+      setWeather(weatherKeys[(idx + 1) % weatherKeys.length]);
+    }
+
+    // UI 이벤트 바인딩
+    const envBar = document.querySelector("#env-control-bar");
+    const cardTime = document.querySelector("#card-time");
+    if (cardTime && envBar) {
+      cardTime.addEventListener("click", () => {
+        envBar.classList.toggle("open");
+      });
+    }
+
+    document.querySelectorAll(".env-btn[data-time]").forEach(btn => {
+      btn.addEventListener("click", () => setTime(btn.dataset.time));
+    });
+    document.querySelectorAll(".env-btn[data-weather]").forEach(btn => {
+      btn.addEventListener("click", () => setWeather(btn.dataset.weather));
+    });
+
+    function dismissIntro() {
+      if (intro.style.display !== "none") {
+        intro.style.display = "none";
+        started = true;
+        audio.init();
+      }
+    }
+    startBtn.addEventListener("click", dismissIntro);
+    intro.addEventListener("click", dismissIntro);
+    window.addEventListener("pointerdown", () => audio.init(), { once: true });
+
+    document.addEventListener("keydown", (e) => {
+      keys[e.code] = true;
+      if (["Space", "ArrowUp", "ArrowDown"].includes(e.code)) e.preventDefault();
+      dismissIntro();
+      if (e.repeat) return;
+
+      if (e.code === "Digit1") setViewMode(1);
+      if (e.code === "Digit2") setViewMode(2);
+      if (e.code === "Digit3") setViewMode(3);
+      if (e.code === "Digit4") setViewMode(4);
+
+      if (e.code === "KeyV") {
+        cycleViewMode();
+      }
+
+      if (e.code === "KeyK") {
+        cycleTime();
+      }
+      if (e.code === "KeyL") {
+        cycleWeather();
+      }
+
+      if (e.code === "KeyE" && viewMode === 2) {
+        isSeated = !isSeated;
+        if (isSeated) {
+          passengerLocalPos.set(-0.65, 1.25, 0.0);
+          targetEyeY = 1.25;
+          orbitYaw = 0.0;
+          orbitPitch = -0.06;
+        } else {
+          targetEyeY = 1.68;
+        }
+      }
+
+      if (e.code === "KeyT") {
+        const doorEl = document.querySelector("#m-door");
+        const isOpen = doorEl.textContent === "열림";
+        doorEl.textContent = isOpen ? "닫힘" : "열림";
+        doorEl.style.color = isOpen ? "#22c55e" : "#f59e0b";
+      }
+    });
+
+    document.addEventListener("keyup", (e) => {
+      keys[e.code] = false;
+    });
+
+    let isMouseDown = false;
+    canvas.addEventListener("mousedown", () => { isMouseDown = true; });
+    window.addEventListener("mouseup", () => { isMouseDown = false; });
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+    canvas.addEventListener("mousemove", (e) => {
+      if (!isMouseDown) return;
+      orbitYaw -= e.movementX * 0.003;
+      orbitPitch += e.movementY * 0.0025;
+      orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+    });
+
+    window.addEventListener("wheel", (e) => {
+      if (viewMode === 3 || viewMode === 4) {
+        cameraDistance += e.deltaY * 0.03;
+        cameraDistance = THREE.MathUtils.clamp(cameraDistance, 8.0, 60.0);
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+      bloom.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ------------------------------------------------------------
+    // 13. 메인 렌더 루프
+    // ------------------------------------------------------------
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const time = clock.elapsedTime;
+
+      waterUniforms.uTime.value = time;
+      if (beaconLight) {
+        beaconLight.intensity = (Math.sin(time * 3.5) > 0.2) ? 3.0 : 0.2;
+      }
+
+      if (rainSystem.visible) {
+        const leadPos = (cars && cars[0]) ? cars[0].position : camera.position;
+        rainSystem.position.set(leadPos.x, 0, leadPos.z);
+        const pos = rainGeo.attributes.position.array;
+        for (let i = 1; i < RAIN_COUNT * 3; i += 3) {
+          pos[i] -= 85.0 * dt;
+          if (pos[i] < 0) pos[i] = 85.0;
+        }
+        rainGeo.attributes.position.needsUpdate = true;
+      }
+
+      if (snowSystem.visible) {
+        const leadPos = (cars && cars[0]) ? cars[0].position : camera.position;
+        snowSystem.position.set(leadPos.x, 0, leadPos.z);
+        const pos = snowGeo.attributes.position.array;
+        for (let i = 0; i < SNOW_COUNT * 3; i += 3) {
+          pos[i + 1] -= 12.0 * dt;
+          pos[i + 0] += Math.sin(time + i) * 0.08;
+          if (pos[i + 1] < 0) pos[i + 1] = 85.0;
+        }
+        snowGeo.attributes.position.needsUpdate = true;
+      }
+
+      updatePhysics(dt);
+      composer.render();
+    }
+    animate();
+  </script>
+</body>
+</html>

@@ -5,7 +5,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Han River Line | 한강선 (DEBUG)</title>
   <style>
     :root {
@@ -462,6 +462,326 @@
       transform: translateY(-2px);
       box-shadow: 0 12px 30px rgba(34, 197, 94, 0.6);
     }
+
+    /* ============================================================
+       모바일 지원: 가상 조이스틱 & 액션 버튼
+    ============================================================ */
+
+    /* 가상 조이스틱 컨테이너 */
+    .joystick-zone {
+      position: fixed;
+      bottom: 0;
+      z-index: 50;
+      touch-action: none;
+      display: none; /* 모바일에서만 표시 */
+    }
+
+    #joystick-move-zone {
+      left: 0;
+      width: 160px;
+      height: 160px;
+    }
+
+    #joystick-look-zone {
+      right: 0;
+      width: 160px;
+      height: 160px;
+    }
+
+    .joystick-base {
+      position: absolute;
+      bottom: 20px;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    #joystick-move-zone .joystick-base {
+      left: 20px;
+    }
+
+    #joystick-look-zone .joystick-base {
+      right: 20px;
+    }
+
+    .joystick-knob {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9), rgba(255,255,255,0.3));
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5), inset 0 1px 3px rgba(255,255,255,0.6);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      transition: none;
+      pointer-events: none;
+    }
+
+    .joystick-label {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+    }
+
+    /* 모바일 액션 버튼 패널 */
+    #mobile-action-bar {
+      position: fixed;
+      bottom: 170px;
+      right: 16px;
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .mob-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: rgba(14, 23, 34, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(12px);
+      border-radius: 28px;
+      padding: 11px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #e2e8f0;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      transition: all 0.15s ease;
+      min-width: 58px;
+      min-height: 44px;
+      white-space: nowrap;
+    }
+
+    .mob-btn:active {
+      transform: scale(0.93);
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      color: #ffffff;
+    }
+
+    .mob-btn.accent {
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #38bdf8;
+    }
+
+    .mob-btn.green {
+      border-color: rgba(34, 197, 94, 0.5);
+      color: #22c55e;
+    }
+
+    .mob-btn.red {
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #ef4444;
+    }
+
+    /* 모바일 시점 전환 FAB */
+    #mob-view-fab {
+      position: fixed;
+      bottom: 170px;
+      left: 170px;
+      z-index: 50;
+      display: none;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0ea5e9, #0369a1);
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: all 0.15s ease;
+    }
+
+    #mob-view-fab:active {
+      transform: scale(0.9);
+      box-shadow: 0 2px 10px rgba(14, 165, 233, 0.4);
+    }
+
+    /* 모바일 상단 UI 최적화 */
+    @media (max-width: 640px) {
+      #top-guidance {
+        top: auto;
+        bottom: 310px;
+        font-size: 11px;
+        padding: 5px 14px;
+        max-width: 70vw;
+        text-align: center;
+        white-space: normal;
+        line-height: 1.4;
+      }
+
+      #card-station {
+        top: 10px;
+        left: 10px;
+        padding: 7px 12px;
+        gap: 10px;
+      }
+
+      .station-title-text {
+        font-size: 14px;
+      }
+
+      .station-subtitle-text {
+        font-size: 9px;
+      }
+
+      #card-mission {
+        top: 72px;
+        left: 10px;
+        width: 175px;
+        padding: 8px 12px;
+      }
+
+      #card-time {
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 11px;
+        gap: 8px;
+      }
+
+      #env-control-bar {
+        top: 50px;
+        right: 10px;
+      }
+
+      .env-btn {
+        padding: 4px 7px;
+        font-size: 10.5px;
+      }
+
+      #card-align-hud {
+        top: auto;
+        bottom: 310px;
+        right: 10px;
+        padding: 7px 12px;
+      }
+
+      #passenger-footer {
+        display: none !important;
+      }
+
+      #bottom-dash {
+        padding: 6px 16px 5px;
+      }
+
+      .dash-metrics-row {
+        flex-wrap: wrap;
+        gap: 8px 16px;
+        justify-content: center;
+      }
+
+      .m-val-big {
+        font-size: 20px;
+      }
+
+      .dash-footer-row {
+        display: none;
+      }
+
+      .joystick-zone {
+        display: block !important;
+      }
+
+      #mobile-action-bar {
+        display: flex !important;
+      }
+
+      #mob-view-fab {
+        display: flex !important;
+      }
+    }
+
+    /* 터치 피드백 오버레이 */
+    .touch-ripple {
+      position: fixed;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      pointer-events: none;
+      transform: translate(-50%, -50%) scale(0);
+      animation: rippleFade 0.4s ease-out forwards;
+      z-index: 9999;
+    }
+
+    @keyframes rippleFade {
+      to { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    }
+
+    /* 가속/제동 버튼 (운전 모드 전용) */
+    #mob-drive-btns {
+      position: fixed;
+      bottom: 170px;
+      left: 170px;
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mob-drive-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(14, 23, 34, 0.85);
+      backdrop-filter: blur(12px);
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      transition: all 0.12s ease;
+      user-select: none;
+    }
+
+    .mob-drive-btn:active,
+    .mob-drive-btn.pressed {
+      transform: scale(0.92);
+    }
+
+    #mob-accel-btn:active, #mob-accel-btn.pressed {
+      background: rgba(34, 197, 94, 0.4);
+      border-color: #22c55e;
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+    }
+
+    #mob-brake-btn:active, #mob-brake-btn.pressed {
+      background: rgba(245, 158, 11, 0.4);
+      border-color: #f59e0b;
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+    }
   </style>
 </head>
 <body>
@@ -612,6 +932,41 @@
     </div>
   </div>
 
+  <!-- 모바일: 가상 조이스틱 영역 -->
+  <!-- 좌측: 이동 조이스틱 -->
+  <div class="joystick-zone" id="joystick-move-zone">
+    <div class="joystick-base" id="joystick-move-base">
+      <div class="joystick-label">이동</div>
+      <div class="joystick-knob" id="joystick-move-knob"></div>
+    </div>
+  </div>
+
+  <!-- 우측: 시점 조이스틱 -->
+  <div class="joystick-zone" id="joystick-look-zone">
+    <div class="joystick-base" id="joystick-look-base">
+      <div class="joystick-label">시점</div>
+      <div class="joystick-knob" id="joystick-look-knob"></div>
+    </div>
+  </div>
+
+  <!-- 모바일: 시점 전환 FAB -->
+  <button id="mob-view-fab" title="시점 전환">👁️</button>
+
+  <!-- 모바일: 운전 모드 가속/제동 버튼 -->
+  <div id="mob-drive-btns">
+    <div class="mob-drive-btn" id="mob-accel-btn" title="가속">⬆️</div>
+    <div class="mob-drive-btn" id="mob-brake-btn" title="제동">🛑</div>
+  </div>
+
+  <!-- 모바일: 액션 버튼 패널 -->
+  <div id="mobile-action-bar">
+    <button class="mob-btn accent" id="mob-btn-v">👁️ 시점 전환</button>
+    <button class="mob-btn green" id="mob-btn-e">🪑 앉기/서기</button>
+    <button class="mob-btn" id="mob-btn-t">🚪 문 조작</button>
+    <button class="mob-btn" id="mob-btn-k">🕐 시간 변경</button>
+    <button class="mob-btn" id="mob-btn-l">🌤️ 날씨 변경</button>
+  </div>
+
   <!-- 시작 인트로 모달 -->
   <div id="intro">
     <div id="intro-card">
@@ -619,9 +974,9 @@
       <h1 style="margin:0 0 12px; font-size:24px; font-weight:900;">한강 잠실철교 3D 시뮬레이션</h1>
       <p style="font-size:13.5px; line-height:1.6; color:#94a3b8; margin:0 0 18px;">
         언리얼 엔진급 그래픽으로 재탄생한 서울 지하철 2호선 한강 횡단 시뮬레이션입니다.<br />
-        <strong>WASD 키로 자유롭게 객실을 걸어 다니며</strong>, <strong>V 키로 외부/선로변 시점을 전환</strong>할 수 있습니다.
+        <strong>WASD / 조이스틱으로 자유롭게 객실을 걸어 다니며</strong>, <strong>V 키 또는 시점 전환 버튼으로 외부/선로변 시점을 전환</strong>할 수 있습니다.
       </p>
-      <button id="start">열차 탑승 및 시뮬레이션 시작</button>
+      <button id="start">🚇 열차 탑승 및 시뮬레이션 시작</button>
     </div>
   </div>
 
@@ -3019,6 +3374,330 @@
       bloom.setSize(window.innerWidth, window.innerHeight);
     });
 
+    // ============================================================
+    // 모바일 지원: 가상 조이스틱 & 터치 컨트롤
+    // ============================================================
+
+    // 터치 피드백 (리플 이펙트)
+    function spawnRipple(x, y) {
+      const el = document.createElement("div");
+      el.className = "touch-ripple";
+      el.style.left = x + "px";
+      el.style.top = y + "px";
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 450);
+    }
+
+    // 모바일 버튼 이벤트 with 햅틱 & 리플
+    function addMobBtn(id, action) {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        const rect = btn.getBoundingClientRect();
+        spawnRipple(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        if (navigator.vibrate) navigator.vibrate(12);
+        action(e);
+      });
+    }
+
+    addMobBtn("mob-btn-v", () => cycleViewMode());
+    addMobBtn("mob-btn-e", () => {
+      if (viewMode === 2) {
+        isSeated = !isSeated;
+        if (isSeated) {
+          passengerLocalPos.set(-0.65, 1.25, 0.0);
+          targetEyeY = 1.25;
+          orbitYaw = 0.0;
+          orbitPitch = -0.06;
+        } else {
+          targetEyeY = 1.68;
+        }
+      }
+    });
+    addMobBtn("mob-btn-t", () => {
+      const doorEl = document.querySelector("#m-door");
+      if (doorEl) {
+        const isOpen = doorEl.textContent === "열림";
+        doorEl.textContent = isOpen ? "닫힘" : "열림";
+        doorEl.style.color = isOpen ? "#22c55e" : "#f59e0b";
+      }
+    });
+    addMobBtn("mob-btn-k", () => cycleTime());
+    addMobBtn("mob-btn-l", () => cycleWeather());
+    addMobBtn("mob-view-fab", () => cycleViewMode());
+
+    // 가속/제동 버튼 (롱프레스 유지)
+    const accelBtn = document.getElementById("mob-accel-btn");
+    const brakeBtn = document.getElementById("mob-brake-btn");
+    if (accelBtn) {
+      accelBtn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        keys["ArrowUp"] = true;
+        accelBtn.classList.add("pressed");
+        if (navigator.vibrate) navigator.vibrate(8);
+      });
+      accelBtn.addEventListener("pointerup", () => { keys["ArrowUp"] = false; accelBtn.classList.remove("pressed"); });
+      accelBtn.addEventListener("pointercancel", () => { keys["ArrowUp"] = false; accelBtn.classList.remove("pressed"); });
+    }
+    if (brakeBtn) {
+      brakeBtn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        keys["ArrowDown"] = true;
+        brakeBtn.classList.add("pressed");
+        if (navigator.vibrate) navigator.vibrate(8);
+      });
+      brakeBtn.addEventListener("pointerup", () => { keys["ArrowDown"] = false; brakeBtn.classList.remove("pressed"); });
+      brakeBtn.addEventListener("pointercancel", () => { keys["ArrowDown"] = false; brakeBtn.classList.remove("pressed"); });
+    }
+
+    // 운전 모드 전환 시 가속/제동 버튼 표시
+    const mobDriveBtns = document.getElementById("mob-drive-btns");
+    const mobActionBar = document.getElementById("mobile-action-bar");
+
+    // 모바일 운전 UI 표시 토글 (운전/외부/선로 등 시점에서 가속/제동 버튼 표시)
+    function updateMobDriveUI() {
+      if (!mobDriveBtns) return;
+      const isMobile = window.innerWidth <= 640;
+      if (isMobile) {
+        if (viewMode === 1 || viewMode === 3 || viewMode === 4) {
+          mobDriveBtns.style.display = "flex";
+        } else {
+          mobDriveBtns.style.display = "none";
+        }
+      }
+    }
+
+    // ============================================================
+    // 가상 조이스틱 구현
+    // ============================================================
+    function createJoystick(zoneEl, knobEl, baseEl, onMove, onEnd) {
+      let activeTouchId = null;
+      let baseX = 0, baseY = 0;
+      const maxDist = 46; // 최대 이동 반경 (px)
+
+      function getCenter() {
+        const rect = baseEl.getBoundingClientRect();
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      }
+
+      function handleStart(e) {
+        e.preventDefault();
+        if (activeTouchId !== null) return;
+        const touch = e.changedTouches ? e.changedTouches[0] : e;
+        activeTouchId = e.changedTouches ? touch.identifier : "mouse";
+        const center = getCenter();
+        baseX = center.x;
+        baseY = center.y;
+        if (navigator.vibrate) navigator.vibrate(10);
+      }
+
+      function handleMove(e) {
+        if (activeTouchId === null) return;
+        e.preventDefault();
+        let touch;
+        if (e.changedTouches) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) {
+              touch = e.changedTouches[i];
+              break;
+            }
+          }
+        } else {
+          touch = e;
+        }
+        if (!touch) return;
+
+        let dx = touch.clientX - baseX;
+        let dy = touch.clientY - baseY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > maxDist) {
+          dx = (dx / dist) * maxDist;
+          dy = (dy / dist) * maxDist;
+        }
+
+        // 조이스틱 노브 시각 이동
+        knobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+        // 정규화된 [-1, 1] 값 전달
+        onMove(dx / maxDist, dy / maxDist);
+      }
+
+      function handleEnd(e) {
+        if (e.changedTouches) {
+          let found = false;
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) found = true;
+          }
+          if (!found) return;
+        }
+        activeTouchId = null;
+        knobEl.style.transform = "translate(-50%, -50%)";
+        onMove(0, 0);
+        if (onEnd) onEnd();
+      }
+
+      zoneEl.addEventListener("touchstart", handleStart, { passive: false });
+      zoneEl.addEventListener("touchmove", handleMove, { passive: false });
+      zoneEl.addEventListener("touchend", handleEnd, { passive: false });
+      zoneEl.addEventListener("touchcancel", handleEnd, { passive: false });
+    }
+
+    // 이동 조이스틱 상태
+    const joyMove = { x: 0, y: 0 };
+    // 시점 조이스틱 상태
+    const joyLook = { x: 0, y: 0 };
+
+    const moveZone = document.getElementById("joystick-move-zone");
+    const moveKnob = document.getElementById("joystick-move-knob");
+    const moveBase = document.getElementById("joystick-move-base");
+    const lookZone = document.getElementById("joystick-look-zone");
+    const lookKnob = document.getElementById("joystick-look-knob");
+    const lookBase = document.getElementById("joystick-look-base");
+
+    if (moveZone && moveKnob && moveBase) {
+      createJoystick(moveZone, moveKnob, moveBase,
+        (nx, ny) => { joyMove.x = nx; joyMove.y = ny; },
+        () => { joyMove.x = 0; joyMove.y = 0; }
+      );
+    }
+
+    if (lookZone && lookKnob && lookBase) {
+      createJoystick(lookZone, lookKnob, lookBase,
+        (nx, ny) => { joyLook.x = nx; joyLook.y = ny; },
+        () => { joyLook.x = 0; joyLook.y = 0; }
+      );
+    }
+
+    // 조이스틱 & 모바일 입력을 매 프레임 keys에 반영 (별도 함수로)
+    function processMobileInput(dt) {
+      // 이동 조이스틱 → WASD 에뮬레이션
+      const jmDeadzone = 0.15;
+      if (Math.abs(joyMove.y) > jmDeadzone) {
+        keys["KeyW"] = joyMove.y < -jmDeadzone;
+        keys["KeyS"] = joyMove.y > jmDeadzone;
+      } else {
+        // Y축 입력 없으면 키보드 상태 복원
+        if (!window._kbKeys?.KeyW) keys["KeyW"] = false;
+        if (!window._kbKeys?.KeyS) keys["KeyS"] = false;
+      }
+      if (Math.abs(joyMove.x) > jmDeadzone) {
+        keys["KeyD"] = joyMove.x > jmDeadzone;
+        keys["KeyA"] = joyMove.x < -jmDeadzone;
+      } else {
+        if (!window._kbKeys?.KeyD) keys["KeyD"] = false;
+        if (!window._kbKeys?.KeyA) keys["KeyA"] = false;
+      }
+
+      // 시점 조이스틱 → yaw/pitch 직접 조절
+      const jlSpeed = 1.8;
+      const jlDeadzone = 0.10;
+      if (Math.abs(joyLook.x) > jlDeadzone) {
+        orbitYaw -= joyLook.x * jlSpeed * dt;
+      }
+      if (Math.abs(joyLook.y) > jlDeadzone) {
+        orbitPitch += joyLook.y * jlSpeed * dt;
+        orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+      }
+
+      // 외부/선로 시점에서 이동 조이스틱 Y축으로 거리 조절
+      if ((viewMode === 3 || viewMode === 4) && Math.abs(joyMove.y) > jmDeadzone) {
+        cameraDistance += joyMove.y * 20.0 * dt;
+        cameraDistance = THREE.MathUtils.clamp(cameraDistance, 8.0, 60.0);
+        keys["KeyW"] = false;
+        keys["KeyS"] = false;
+      }
+
+      // 매 프레임 모바일 드라이브 UI 상태 동기화
+      updateMobDriveUI();
+    }
+
+    // ============================================================
+    // 캔버스 터치: 싱글 터치 시점 스와이프 & 핀치 줌
+    // ============================================================
+    let canvasTouches = {};
+    let lastPinchDist = 0;
+
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      dismissIntro();
+      audio.init();
+      Array.from(e.changedTouches).forEach(t => {
+        canvasTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+      });
+      if (Object.keys(canvasTouches).length === 2) {
+        const ids = Object.keys(canvasTouches);
+        const t1 = canvasTouches[ids[0]];
+        const t2 = canvasTouches[ids[1]];
+        lastPinchDist = Math.hypot(t2.x - t1.x, t2.y - t1.y);
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      const touchCount = Object.keys(canvasTouches).length + e.changedTouches.length;
+
+      if (Object.keys(canvasTouches).length === 2) {
+        // 핀치 줌 (외부/선로 시점)
+        const ids = Object.keys(canvasTouches);
+        const prev1 = canvasTouches[ids[0]];
+        const prev2 = canvasTouches[ids[1]];
+        let cur1 = prev1, cur2 = prev2;
+        Array.from(e.changedTouches).forEach(t => {
+          if (t.identifier.toString() === ids[0]) cur1 = { x: t.clientX, y: t.clientY };
+          if (t.identifier.toString() === ids[1]) cur2 = { x: t.clientX, y: t.clientY };
+        });
+        const newDist = Math.hypot(cur2.x - cur1.x, cur2.y - cur1.y);
+        if (lastPinchDist > 0) {
+          const delta = lastPinchDist - newDist;
+          if (viewMode === 3 || viewMode === 4) {
+            cameraDistance += delta * 0.06;
+            cameraDistance = THREE.MathUtils.clamp(cameraDistance, 8.0, 60.0);
+          }
+        }
+        lastPinchDist = newDist;
+        // 핀치 중 위치 업데이트
+        Array.from(e.changedTouches).forEach(t => {
+          if (canvasTouches[t.identifier] !== undefined) {
+            canvasTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+          }
+        });
+        return;
+      }
+
+      // 싱글 터치: 시점 스와이프
+      Array.from(e.changedTouches).forEach(t => {
+        const prev = canvasTouches[t.identifier];
+        if (!prev) return;
+        const dx = t.clientX - prev.x;
+        const dy = t.clientY - prev.y;
+        orbitYaw -= dx * 0.004;
+        orbitPitch += dy * 0.003;
+        orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+        canvasTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+      });
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", (e) => {
+      Array.from(e.changedTouches).forEach(t => {
+        delete canvasTouches[t.identifier];
+      });
+      lastPinchDist = 0;
+    }, { passive: false });
+
+    canvas.addEventListener("touchcancel", (e) => {
+      canvasTouches = {};
+      lastPinchDist = 0;
+    }, { passive: false });
+
+    // 키보드 입력과 조이스틱 충돌 방지: 진짜 키보드 상태 별도 보관
+    window._kbKeys = {};
+    document.addEventListener("keydown", (e2) => { window._kbKeys[e2.code] = true; });
+    document.addEventListener("keyup", (e2) => { window._kbKeys[e2.code] = false; });
+
+    // 초기 모바일 UI 상태
+    updateMobDriveUI();
+
     // ------------------------------------------------------------
     // 13. 메인 렌더 루프
     // ------------------------------------------------------------
@@ -3056,6 +3735,7 @@
         snowGeo.attributes.position.needsUpdate = true;
       }
 
+      processMobileInput(dt);
       updatePhysics(dt);
       composer.render();
     }

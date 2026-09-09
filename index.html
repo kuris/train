@@ -1260,73 +1260,177 @@
     scene.add(olympicBridge);
 
     // ------------------------------------------------------------
-    // 7. 한강 양안 사실적 지형 및 둔치 (남단 잠실 & 북단 광진/강변)
+    // 7. 한강 양안 사실적 지형 & 프로시저럴 지표면 셰이더 (도심 아스팔트 + 잔디 + 보도)
     // ------------------------------------------------------------
-    const matEmbankment = new THREE.MeshStandardMaterial({ color: 0xc8c2b5, roughness: 0.9 });
-    const matCityGround = new THREE.MeshStandardMaterial({ color: 0x8a929b, roughness: 0.85 });
-    const matHangangPark = new THREE.MeshStandardMaterial({ color: 0x42754e, roughness: 0.85 }); // 푸른 잔디공원
-    const matHighway = new THREE.MeshStandardMaterial({ color: 0x333842, roughness: 0.75 }); // 올림픽대로 / 강변북로
-    const matTrackRed = new THREE.MeshStandardMaterial({ color: 0xb34436, roughness: 0.85 }); // 우레탄 조깅트랙
+
+    // 도시 지면: 균열/보도블럭 절차적 셰이더 (단색 제거)
+    const groundShader = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        void main() {
+          vUv = uv;
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        varying vec3 vWorldPos;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        void main() {
+          vec2 p = vWorldPos.xz;
+
+          // 아스팔트 베이스 (미세 노이즈 입혀서 단색 제거)
+          vec2 grain = floor(p * 0.9);
+          float n = hash(grain) * 0.08 - 0.04;
+          vec3 asphalt = vec3(0.52, 0.53, 0.55) + n;
+
+          // 보도블럭 격자 (1.2m 단위)
+          vec2 tile = fract(p / 1.2);
+          float groove = step(0.94, tile.x) + step(0.94, tile.y);
+          asphalt = mix(asphalt, vec3(0.38, 0.39, 0.41), groove * 0.45);
+
+          // 도로 차선 마킹 (16m 간격 흰 점선)
+          float laneX = step(0.48, fract(p.x / 4.0)) * step(fract(p.x / 4.0), 0.52);
+          float dashedZ = step(0.35, fract(p.y / 16.0)) * step(fract(p.y / 16.0), 0.65);
+          asphalt = mix(asphalt, vec3(0.95, 0.95, 0.92), laneX * dashedZ * 0.7);
+
+          // 균열 (랜덤 셀 경계)
+          vec2 crackCell = floor(p * 0.25);
+          float crack = hash(crackCell + vec2(7.3, 2.1));
+          if (crack > 0.82) {
+            float crackLine = abs(fract(p.x * 0.25) - 0.5) * 2.0;
+            asphalt = mix(asphalt, vec3(0.32, 0.33, 0.34), step(crackLine, 0.06) * 0.6);
+          }
+
+          // 간접광 음영 (AO 효과 흉내)
+          float ao = 0.88 + hash(floor(p * 0.05)) * 0.12;
+          gl_FragColor = vec4(asphalt * ao, 1.0);
+        }
+      `
+    });
+
+    // 공원 잔디: 풀잎 질감 셰이더
+    const grassShader = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 } },
+      vertexShader: `
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vWorldPos;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        void main() {
+          vec2 p = vWorldPos.xz;
+          // 풀잎 클러스터 노이즈
+          float n1 = hash(floor(p * 3.0)) * 0.12 - 0.06;
+          float n2 = hash(floor(p * 0.5) + vec2(33.0)) * 0.08;
+          vec3 grass = vec3(0.28 + n1, 0.62 + n1 + n2, 0.22 + n2 * 0.5);
+          // 발자국 경로 (약간 짙은 소로)
+          float path = step(0.48, fract(p.x / 6.0)) * step(fract(p.x / 6.0), 0.52);
+          grass = mix(grass, vec3(0.38, 0.52, 0.28), path * 0.4);
+          gl_FragColor = vec4(grass, 1.0);
+        }
+      `
+    });
+
+    // 고속도로/도로 셰이더
+    const highwayShader = new THREE.ShaderMaterial({
+      vertexShader: `
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vWorldPos;
+        float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        void main() {
+          vec2 p = vWorldPos.xz;
+          float n = hash(floor(p * 1.5)) * 0.05 - 0.025;
+          vec3 road = vec3(0.20 + n, 0.21 + n, 0.23 + n);
+          // 차선 흰 점선
+          float lane = step(0.47, fract(p.x / 3.6)) * step(fract(p.x / 3.6), 0.53);
+          float dash = step(0.2, fract(p.y / 12.0)) * step(fract(p.y / 12.0), 0.6);
+          road = mix(road, vec3(0.9, 0.9, 0.88), lane * dash * 0.85);
+          // 가드레일 그림자선
+          float rail = step(0.99, fract(p.x / 3.6 + 0.5)) ;
+          road = mix(road, vec3(0.35, 0.35, 0.35), rail * 0.5);
+          gl_FragColor = vec4(road, 1.0);
+        }
+      `
+    });
+
+    const matEmbankment = new THREE.MeshStandardMaterial({ color: 0xb8b0a0, roughness: 0.92, metalness: 0.0 });
+    const matTrackRed = new THREE.MeshStandardMaterial({ color: 0xb34436, roughness: 0.85 });
 
     const terrainGroup = new THREE.Group();
 
-    // [남단 잠실 지면] Z: 450 ~ 2600, Y: 4.5 (고도 4.5m 도시 대지)
-    const southGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2200), matCityGround);
+    // [남단 잠실 지면] Z: 450 ~ 2600 — 보도블럭/아스팔트 셰이더
+    const southGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2200, 8, 8), groundShader);
     southGround.rotation.x = -Math.PI / 2;
     southGround.position.set(200, 4.48, 1550);
     terrainGroup.add(southGround);
 
-    // 남단 한강공원 잔디밭 (Z: 470 ~ 600)
-    const southPark = new THREE.Mesh(new THREE.PlaneGeometry(6000, 130), matHangangPark);
+    // 남단 한강공원 잔디밭 — 풀잎 질감 셰이더
+    const southPark = new THREE.Mesh(new THREE.PlaneGeometry(6000, 130, 4, 4), grassShader);
     southPark.rotation.x = -Math.PI / 2;
     southPark.position.set(200, 4.50, 535);
     terrainGroup.add(southPark);
 
-    // 남단 조깅트랙 (Z: 505 ~ 512)
+    // 남단 조깅트랙
     const southTrack = new THREE.Mesh(new THREE.PlaneGeometry(6000, 7), matTrackRed);
     southTrack.rotation.x = -Math.PI / 2;
     southTrack.position.set(200, 4.52, 508);
     terrainGroup.add(southTrack);
 
-    // 올림픽대로 고속화도로 (Z: 605 ~ 665)
-    const southHwy = new THREE.Mesh(new THREE.PlaneGeometry(6000, 60), matHighway);
+    // 올림픽대로 고속화도로 — 도로 셰이더
+    const southHwy = new THREE.Mesh(new THREE.PlaneGeometry(6000, 60, 4, 2), highwayShader);
     southHwy.rotation.x = -Math.PI / 2;
     southHwy.position.set(200, 4.53, 635);
     terrainGroup.add(southHwy);
 
-    // 남단 강둑 석축 사면 (Z: 450 ~ 470, Y: 0.1 ~ 4.5)
-    const southSlopeGeo = new THREE.PlaneGeometry(6000, 25);
-    const southSlope = new THREE.Mesh(southSlopeGeo, matEmbankment);
+    // 남단 강둑 석축 사면
+    const southSlope = new THREE.Mesh(new THREE.PlaneGeometry(6000, 25), matEmbankment);
     southSlope.rotation.x = -Math.PI / 2 + 0.22;
     southSlope.position.set(200, 2.3, 460);
     terrainGroup.add(southSlope);
 
-    // [북단 강변/광진 지면] Z: -450 ~ -2600, Y: 4.5
-    const northGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2200), matCityGround);
+    // [북단 강변/광진 지면] — 보도블럭/아스팔트 셰이더
+    const northGround = new THREE.Mesh(new THREE.PlaneGeometry(6000, 2200, 8, 8), groundShader);
     northGround.rotation.x = -Math.PI / 2;
     northGround.position.set(200, 4.48, -1550);
     terrainGroup.add(northGround);
 
-    // 북단 한강공원 잔디밭 (Z: -470 ~ -580)
-    const northPark = new THREE.Mesh(new THREE.PlaneGeometry(6000, 110), matHangangPark);
+    // 북단 한강공원 잔디밭 — 풀잎 질감 셰이더
+    const northPark = new THREE.Mesh(new THREE.PlaneGeometry(6000, 110, 4, 4), grassShader);
     northPark.rotation.x = -Math.PI / 2;
     northPark.position.set(200, 4.50, -525);
     terrainGroup.add(northPark);
 
-    // 강변북로 고속화도로 (Z: -585 ~ -645)
-    const northHwy = new THREE.Mesh(new THREE.PlaneGeometry(6000, 60), matHighway);
+    // 강변북로 고속화도로 — 도로 셰이더
+    const northHwy = new THREE.Mesh(new THREE.PlaneGeometry(6000, 60, 4, 2), highwayShader);
     northHwy.rotation.x = -Math.PI / 2;
     northHwy.position.set(200, 4.53, -615);
     terrainGroup.add(northHwy);
 
-    // 북단 강둑 석축 사면 (Z: -450 ~ -470, Y: 0.1 ~ 4.5)
-    const northSlopeGeo = new THREE.PlaneGeometry(6000, 25);
-    const northSlope = new THREE.Mesh(northSlopeGeo, matEmbankment);
+    // 북단 강둑 석축 사면
+    const northSlope = new THREE.Mesh(new THREE.PlaneGeometry(6000, 25), matEmbankment);
     northSlope.rotation.x = -Math.PI / 2 - 0.22;
     northSlope.position.set(200, 2.3, -460);
     terrainGroup.add(northSlope);
 
     scene.add(terrainGroup);
+
 
     // 양안 강변 가로수림 수목 배치 (수면에 겹치지 않고 지상에 올바르게 식재)
     const treeTrunkGeo = new THREE.CylinderGeometry(0.35, 0.45, 3.2, 8);
@@ -1500,54 +1604,134 @@
     scene.add(aptGroup);
 
     // ------------------------------------------------------------
-    // 8-1. Sketchfab / Kenney 3D 무료 시티팩 모델 비동기 로드 및 한강 수변 공원 & 도심 배치
+    // 8-1. 수변 상업 지구 / 오피스 빌딩 군집 (절차적 생성 — 비석 현상 완전 해결)
     // ------------------------------------------------------------
-    const cityPackGroup = new THREE.Group();
-    scene.add(cityPackGroup);
+    // 다양한 파사드 셰이더: 유리 커튼월, 콘크리트 오피스, 벽돌 상가
+    function makeFacadeShader(wallR, wallG, wallB, glassR, glassG, glassB) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uSunDir: { value: sunLight.position.clone().normalize() } },
+        vertexShader: `
+          varying vec3 vWorldPos;
+          varying vec3 vNormal;
+          void main() {
+            vNormal = normalize(mat3(modelMatrix) * normal);
+            vec4 wp = modelMatrix * vec4(position, 1.0);
+            vWorldPos = wp.xyz;
+            gl_Position = projectionMatrix * viewMatrix * wp;
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vWorldPos;
+          varying vec3 vNormal;
+          uniform vec3 uSunDir;
+          float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          void main() {
+            vec3 n = abs(vNormal);
+            float u = n.x > 0.5 ? vWorldPos.z : vWorldPos.x;
+            float v = vWorldPos.y;
+            float fw = ${wallR.toFixed(3)};
+            float fg = ${wallG.toFixed(3)};
+            float fb = ${wallB.toFixed(3)};
+            vec3 wall = vec3(fw, fg, fb);
+            float grainSeed = hash(vec2(floor(u * 0.8), floor(v * 0.8))) * 0.06 - 0.03;
+            wall += grainSeed;
 
-    const gltfLoader = new GLTFLoader();
-    const cityModels = [
-      { url: "models/building-small-a.glb", scale: 4.5 },
-      { url: "models/building-small-b.glb", scale: 4.5 },
-      { url: "models/building-small-c.glb", scale: 4.5 },
-      { url: "models/building-small-d.glb", scale: 4.5 },
-      { url: "models/building-garage.glb", scale: 4.0 },
-      { url: "models/pavement-fountain.glb", scale: 3.5 },
-      { url: "models/road-straight-lightposts.glb", scale: 4.0 },
-      { url: "models/grass-trees.glb", scale: 4.0 }
+            float floorH = 3.4;
+            float colW = 3.0;
+            float inFloor = fract(v / floorH);
+            float inCol = fract(u / colW);
+            float floorId = floor(v / floorH);
+            float colId = floor(u / colW);
+
+            // 수평 스팬드럴 밴드
+            if (inFloor < 0.10 || inFloor > 0.93) wall *= 0.78;
+
+            // 수직 기둥선
+            if (inCol < 0.07 || inCol > 0.93) wall *= 0.85;
+
+            // 창문
+            bool isWin = (inFloor > 0.13 && inFloor < 0.90) && (inCol > 0.10 && inCol < 0.90);
+            if (isWin) {
+              float rnd = hash(vec2(floorId, colId));
+              if (rnd < 0.14) {
+                // 불 켜진 창 (따뜻한 노란빛)
+                wall = vec3(1.0, 0.90, 0.65);
+              } else {
+                // 반사 유리 (하늘 반영 + 살짝 청록)
+                wall = vec3(${glassR.toFixed(3)}, ${glassG.toFixed(3)}, ${glassB.toFixed(3)});
+                // 창 프레임 라인
+                float fx = abs(inCol - 0.5) * 2.0;
+                float fy = abs(inFloor - 0.5) * 2.0;
+                if (fx > 0.88 || fy > 0.88) wall *= 0.6;
+                // 블라인드 효과
+                if (rnd > 0.60 && rnd < 0.70) wall = mix(wall, vec3(0.85, 0.82, 0.78), 0.6);
+              }
+            }
+
+            float diff = max(0.42, dot(vNormal, uSunDir) * 0.6 + 0.42);
+            gl_FragColor = vec4(wall * diff, 1.0);
+          }
+        `
+      });
+    }
+
+    // 4종 파사드 (유리 오피스, 콘크리트 상업, 베이지 주상복합, 어두운 현대 타워)
+    const matOfficeGlass  = makeFacadeShader(0.70, 0.75, 0.80, 0.38, 0.58, 0.72);
+    const matConcreteComm = makeFacadeShader(0.78, 0.76, 0.72, 0.28, 0.38, 0.48);
+    const matBeigeComplex = makeFacadeShader(0.88, 0.84, 0.78, 0.32, 0.50, 0.62);
+    const matDarkTower    = makeFacadeShader(0.38, 0.40, 0.44, 0.22, 0.35, 0.50);
+
+    const commercialGroup = new THREE.Group();
+    const cbGeo = new THREE.BoxGeometry(1, 1, 1);
+
+    // 상업 건물 배치 데이터: [x, z, w, h, d, facadeIdx, rotY]
+    // 수변 남단 상업 지구 (Z: 660 ~ 1200, 강변 도로 이면)
+    const southCommBlocks = [
+      [-550,  720, 38, 28, 22, 0,  0],  [-390,  760, 30, 35, 18, 1,  0],
+      [-200,  700, 44, 22, 20, 2,  0],  [  0,   740, 28, 42, 16, 3,  0],
+      [ 200,  780, 36, 30, 24, 0,  0],  [ 380,  720, 48, 18, 22, 1,  0],
+      [ 560,  760, 32, 52, 18, 2,  0],  [ 740,  720, 40, 26, 20, 3,  0],
+      [ 920,  780, 34, 38, 16, 0,  0],  [1100,  740, 44, 24, 22, 1,  0],
+      [-470,  880, 42, 58, 20, 3,  0],  [-260,  900, 36, 44, 18, 0,  0],
+      [ -50,  860, 50, 32, 26, 1,  0],  [ 180,  890, 38, 48, 20, 2,  0],
+      [ 400,  870, 44, 36, 22, 3,  0],  [ 620,  900, 32, 60, 18, 0,  0],
+      [ 850,  860, 48, 28, 24, 1,  0],  [1050,  890, 36, 44, 20, 2,  0],
+    ];
+    // 수변 북단 상업 지구 (Z: -660 ~ -1200)
+    const northCommBlocks = [
+      [-520, -720, 40, 32, 20, 1,  0],  [-320, -760, 34, 46, 18, 2,  0],
+      [-100, -700, 46, 24, 22, 3,  0],  [ 100, -740, 30, 40, 16, 0,  0],
+      [ 300, -780, 38, 28, 24, 1,  0],  [ 490, -730, 44, 54, 20, 2,  0],
+      [ 680, -760, 36, 32, 18, 3,  0],  [ 870, -720, 48, 22, 22, 0,  0],
+      [1060, -780, 32, 46, 16, 1,  0],  [-430, -880, 44, 38, 20, 0,  0],
+      [-220, -900, 38, 56, 18, 3,  0],  [  10, -860, 52, 30, 26, 1,  0],
+      [ 230, -890, 36, 44, 20, 2,  0],  [ 450, -870, 46, 28, 22, 3,  0],
+      [ 670, -900, 34, 62, 18, 0,  0],  [ 900, -860, 50, 34, 24, 1,  0],
     ];
 
-    cityModels.forEach((m, mIdx) => {
-      gltfLoader.load(m.url, (gltf) => {
-        const root = gltf.scene;
-        root.traverse((node) => {
-          if (node.isMesh) {
-            node.castShadow = false;
-            node.receiveShadow = true;
-          }
-        });
+    const facadeMats = [matOfficeGlass, matConcreteComm, matBeigeComplex, matDarkTower];
 
-        // 1) 뚝섬 한강공원 수변 광장 (북단 X: -300 ~ 1100, Z: -500 ~ -460)
-        for (let x = -300; x <= 1100; x += 140) {
-          const clone = root.clone();
-          clone.scale.setScalar(m.scale);
-          clone.position.set(x + ((mIdx * 17) % 75), 4.5, -480 - ((mIdx * 21) % 40));
-          clone.rotation.y = ((mIdx + x) % 4) * (Math.PI / 2);
-          cityPackGroup.add(clone);
-        }
+    function placeCommBlocks(blocks) {
+      blocks.forEach(([bx, bz, w, h, d, fi, ry]) => {
+        const mat = facadeMats[fi];
+        const bld = new THREE.Mesh(cbGeo, mat);
+        bld.scale.set(w, h, d);
+        bld.position.set(bx, 4.5 + h / 2, bz);
+        if (ry) bld.rotation.y = ry;
+        commercialGroup.add(bld);
 
-        // 2) 잠실 한강공원 수변 광장 (남단 X: -300 ~ 1100, Z: 460 ~ 500)
-        for (let x = -250; x <= 1150; x += 150) {
-          const clone = root.clone();
-          clone.scale.setScalar(m.scale);
-          clone.position.set(x + ((mIdx * 19) % 80), 4.5, 480 + ((mIdx * 18) % 35));
-          clone.rotation.y = ((mIdx * 3 + x) % 4) * (Math.PI / 2);
-          cityPackGroup.add(clone);
-        }
-      }, undefined, (err) => {
-        // 비동기 로딩 오류 시에도 시뮬레이션 영향 없음
+        // 옥상 구조물 (환기탑, 물탱크, 계단실 박스)
+        const roofBox = new THREE.Mesh(cbGeo, mat);
+        roofBox.scale.set(w * 0.28, 4.5, d * 0.35);
+        roofBox.position.set(bx - w * 0.15, 4.5 + h + 2.25, bz + d * 0.1);
+        commercialGroup.add(roofBox);
       });
-    });
+    }
+
+    placeCommBlocks(southCommBlocks);
+    placeCommBlocks(northCommBlocks);
+    scene.add(commercialGroup);
+
 
     // ------------------------------------------------------------
     // 9. 잠실 랜드마크 (555m 롯데월드타워 - 사실적 PBR 글래스 타워 & 웅장한 도심 스카이라인)

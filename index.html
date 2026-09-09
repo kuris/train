@@ -220,6 +220,251 @@
       box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
     }
 
+    /* ============================================================
+       MSFS 스타일 날씨/시간 통합 조정 패널
+       ============================================================ */
+    #wx-panel {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.92);
+      z-index: 9000;
+      width: 520px;
+      background: rgba(8, 14, 26, 0.82);
+      backdrop-filter: blur(28px) saturate(160%);
+      -webkit-backdrop-filter: blur(28px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 18px;
+      padding: 0;
+      box-shadow:
+        0 32px 80px rgba(0,0,0,0.7),
+        0 0 0 1px rgba(56,189,248,0.12),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.22,1,0.36,1);
+      pointer-events: all;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", sans-serif;
+    }
+    #wx-panel.open {
+      display: flex;
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    #wx-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(56,189,248,0.06);
+    }
+    #wx-panel-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #wx-panel-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 8px #38bdf8;
+      animation: wxPulse 2s infinite;
+    }
+    @keyframes wxPulse {
+      0%,100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+    #wx-panel-close {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.06);
+      color: #94a3b8;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+    }
+    #wx-panel-close:hover { background: rgba(239,68,68,0.3); color: #fff; border-color: #ef4444; }
+
+    #wx-panel-body {
+      padding: 18px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .wx-section-title {
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 10px;
+    }
+    .wx-section-title span {
+      color: #38bdf8;
+    }
+
+    /* 시간 선택 카드 그리드 */
+    .wx-time-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .wx-time-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 10px;
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .wx-time-card:hover {
+      background: rgba(56,189,248,0.14);
+      border-color: rgba(56,189,248,0.5);
+      transform: translateY(-2px);
+    }
+    .wx-time-card.active {
+      background: linear-gradient(160deg, rgba(2,132,199,0.45), rgba(3,105,161,0.35));
+      border-color: #38bdf8;
+      box-shadow: 0 0 14px rgba(56,189,248,0.3);
+    }
+    .wx-time-icon { font-size: 20px; }
+    .wx-time-lbl { font-size: 10px; font-weight: 700; color: #cbd5e1; }
+    .wx-time-clk { font-size: 9px; color: #64748b; font-family: monospace; }
+
+    /* 날씨 프리셋 그리드 */
+    .wx-weather-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+    .wx-weather-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 10px;
+      padding: 10px 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .wx-weather-card:hover {
+      background: rgba(56,189,248,0.14);
+      border-color: rgba(56,189,248,0.5);
+      transform: translateY(-2px);
+    }
+    .wx-weather-card.active {
+      background: linear-gradient(160deg, rgba(2,132,199,0.45), rgba(3,105,161,0.35));
+      border-color: #38bdf8;
+      box-shadow: 0 0 14px rgba(56,189,248,0.3);
+    }
+    .wx-weather-icon { font-size: 20px; }
+    .wx-weather-lbl { font-size: 10px; font-weight: 700; color: #cbd5e1; }
+
+    /* 슬라이더 섹션 */
+    .wx-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .wx-slider-lbl {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #94a3b8;
+      width: 58px;
+      flex-shrink: 0;
+    }
+    .wx-slider-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      width: 20px;
+      text-align: center;
+    }
+    .wx-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.1);
+      outline: none;
+      cursor: pointer;
+      position: relative;
+    }
+    .wx-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 0 8px rgba(56,189,248,0.7);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .wx-slider::-webkit-slider-thumb:hover { transform: scale(1.25); }
+    .wx-slider-val {
+      font-size: 11px;
+      font-weight: 800;
+      color: #38bdf8;
+      width: 30px;
+      text-align: right;
+      font-family: monospace;
+    }
+
+    /* 하단 현재상태 요약바 */
+    #wx-status-bar {
+      padding: 10px 20px;
+      background: rgba(0,0,0,0.25);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10.5px;
+      color: #64748b;
+    }
+    #wx-status-bar span { color: #94a3b8; font-weight: 700; }
+    #wx-status-cur { color: #38bdf8; font-weight: 800; }
+
+    /* 날씨 패널 열기 버튼 (card-time 옆에) */
+    #btn-wx-panel {
+      position: fixed;
+      top: 18px;
+      right: 195px;
+      z-index: 26;
+      background: rgba(8,14,26,0.82);
+      border: 1px solid rgba(56,189,248,0.35);
+      backdrop-filter: blur(14px);
+      border-radius: 9px;
+      padding: 7px 13px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #38bdf8;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: all 0.18s ease;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    }
+    #btn-wx-panel:hover {
+      background: rgba(2,132,199,0.3);
+      border-color: #38bdf8;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(56,189,248,0.25);
+    }
+    #btn-wx-panel .wx-btn-icon { font-size: 14px; }
+
     /* 정차 위치 HUD (스크린샷 4 일치) */
     #card-align-hud {
       position: fixed;
@@ -886,6 +1131,122 @@
     <div>
       <div class="station-title-text" id="route-name-title">강변 → 잠실나루</div>
       <div class="station-subtitle-text" id="route-mode-sub">HAN RIVER LINE / 승객 · 자동 운전</div>
+    </div>
+  </div>
+  <!-- MSFS 스타일 날씨 패널 열기 버튼 -->
+  <button id="btn-wx-panel" title="날씨/시간 통합 조정 패널 열기 (단축키 W)">
+    <span class="wx-btn-icon">🌤</span> 날씨 / 시간
+  </button>
+
+  <!-- MSFS 스타일 날씨/시간 통합 조정 패널 -->
+  <div id="wx-panel">
+    <div id="wx-panel-header">
+      <div id="wx-panel-title">Weather &amp; Time Control</div>
+      <button id="wx-panel-close" title="닫기">✕</button>
+    </div>
+    <div id="wx-panel-body">
+
+      <!-- 시간대 섹션 -->
+      <div>
+        <div class="wx-section-title">⏰ <span>시간대</span> — TIME OF DAY</div>
+        <div class="wx-time-grid">
+          <div class="wx-time-card active" data-wx-time="morning">
+            <div class="wx-time-icon">🌅</div>
+            <div class="wx-time-lbl">아침</div>
+            <div class="wx-time-clk">07:30</div>
+          </div>
+          <div class="wx-time-card" data-wx-time="noon">
+            <div class="wx-time-icon">☀️</div>
+            <div class="wx-time-lbl">낮</div>
+            <div class="wx-time-clk">13:00</div>
+          </div>
+          <div class="wx-time-card" data-wx-time="sunset">
+            <div class="wx-time-icon">🌇</div>
+            <div class="wx-time-lbl">노을</div>
+            <div class="wx-time-clk">18:45</div>
+          </div>
+          <div class="wx-time-card" data-wx-time="night">
+            <div class="wx-time-icon">🌙</div>
+            <div class="wx-time-lbl">밤</div>
+            <div class="wx-time-clk">21:30</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 날씨 프리셋 섹션 -->
+      <div>
+        <div class="wx-section-title">🌡 <span>날씨 프리셋</span> — WEATHER PRESET</div>
+        <div class="wx-weather-grid">
+          <div class="wx-weather-card active" data-wx-weather="clear">
+            <div class="wx-weather-icon">☀️</div>
+            <div class="wx-weather-lbl">맑음</div>
+          </div>
+          <div class="wx-weather-card" data-wx-weather="cloudy">
+            <div class="wx-weather-icon">☁️</div>
+            <div class="wx-weather-lbl">흐림</div>
+          </div>
+          <div class="wx-weather-card" data-wx-weather="rain">
+            <div class="wx-weather-icon">🌧️</div>
+            <div class="wx-weather-lbl">비</div>
+          </div>
+          <div class="wx-weather-card" data-wx-weather="fog">
+            <div class="wx-weather-icon">🌫️</div>
+            <div class="wx-weather-lbl">안개</div>
+          </div>
+          <div class="wx-weather-card" data-wx-weather="snow">
+            <div class="wx-weather-icon">❄️</div>
+            <div class="wx-weather-lbl">눈</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 세부 슬라이더 섹션 -->
+      <div>
+        <div class="wx-section-title">🎛 <span>세부 조정</span> — FINE TUNING</div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <div class="wx-slider-row">
+            <div class="wx-slider-lbl">구름량</div>
+            <div class="wx-slider-icon">☁️</div>
+            <input type="range" id="wx-slider-cloud" class="wx-slider" min="0" max="100" value="20">
+            <div class="wx-slider-val" id="wx-val-cloud">20%</div>
+          </div>
+          <div class="wx-slider-row">
+            <div class="wx-slider-lbl">강수량</div>
+            <div class="wx-slider-icon">🌧</div>
+            <input type="range" id="wx-slider-rain" class="wx-slider" min="0" max="100" value="0">
+            <div class="wx-slider-val" id="wx-val-rain">0%</div>
+          </div>
+          <div class="wx-slider-row">
+            <div class="wx-slider-lbl">적설량</div>
+            <div class="wx-slider-icon">❄️</div>
+            <input type="range" id="wx-slider-snow" class="wx-slider" min="0" max="100" value="0">
+            <div class="wx-slider-val" id="wx-val-snow">0%</div>
+          </div>
+          <div class="wx-slider-row">
+            <div class="wx-slider-lbl">안개 농도</div>
+            <div class="wx-slider-icon">🌫</div>
+            <input type="range" id="wx-slider-fog" class="wx-slider" min="0" max="100" value="0">
+            <div class="wx-slider-val" id="wx-val-fog">0%</div>
+          </div>
+          <div class="wx-slider-row">
+            <div class="wx-slider-lbl">바람 세기</div>
+            <div class="wx-slider-icon">💨</div>
+            <input type="range" id="wx-slider-wind" class="wx-slider" min="0" max="100" value="30">
+            <div class="wx-slider-val" id="wx-val-wind">30%</div>
+          </div>
+          <div class="wx-slider-row">
+            <div class="wx-slider-lbl">가시거리</div>
+            <div class="wx-slider-icon">👁</div>
+            <input type="range" id="wx-slider-vis" class="wx-slider" min="10" max="100" value="100">
+            <div class="wx-slider-val" id="wx-val-vis">100%</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div id="wx-status-bar">
+      <div>현재: <span id="wx-status-cur">아침 · 맑음</span></div>
+      <div style="color:#334155;font-size:9.5px;letter-spacing:0.5px">ESC / W 로 닫기</div>
     </div>
   </div>
 
@@ -3629,109 +3990,125 @@
       interior.add(create7SeatBench(-1, 4.5, false));
 
       // ------------------------------------------------------------
-      // 3인칭 지하철 탑승객 캐릭터 모델링 (좌석 착석 및 손잡이 입석)
+      // 케니(Kenney) 스타일 저폴리 탑승객 캐릭터
       // ------------------------------------------------------------
-      const passColors = [0x1e3a8a, 0x334155, 0x78350f, 0x065f46, 0x4c1d95, 0x831843, 0x374151];
-      const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
-      const hairMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 });
-      const phoneMat = new THREE.MeshBasicMaterial({ color: 0x93c5fd });
+      function makeKenneyChar(bodyColor, headColor, seated, holdingPole, poleX) {
+        const g = new THREE.Group();
+        const matBody = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.55 });
+        const matHead = new THREE.MeshStandardMaterial({ color: headColor, roughness: 0.45 });
+        const matDark  = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6 });
 
-      function createPassenger(type, x, z, rotY, colorIdx) {
-        const pGroup = new THREE.Group();
-        pGroup.position.set(x, 0, z);
-        pGroup.rotation.y = rotY;
+        // 머리
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.22), matHead);
+        head.position.y = seated ? 0.82 : 1.52;
+        g.add(head);
 
-        const clothesMat = new THREE.MeshStandardMaterial({
-          color: passColors[colorIdx % passColors.length],
-          roughness: 0.65
+        // 눈 (작은 다크 큐브)
+        [-0.055, 0.055].forEach(ex => {
+          const eye = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.04), matDark);
+          eye.position.set(ex, seated ? 0.84 : 1.54, seated ? 0.114 : 0.114);
+          g.add(eye);
         });
-        const pantsMat = new THREE.MeshStandardMaterial({
-          color: (colorIdx % 2 === 0) ? 0x1f2937 : 0x475569,
-          roughness: 0.7
-        });
 
-        if (type === "sitting") {
-          // 1. 좌석 착석 승객
-          // 골반/허벅지
-          const thighs = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.38), pantsMat);
-          thighs.position.set(0, 0.44, 0.16);
-          pGroup.add(thighs);
+        // 몸통
+        const torsoH = seated ? 0.32 : 0.46;
+        const torsoY = seated ? 0.56 : 1.15;
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.28, torsoH, 0.18), matBody);
+        torso.position.y = torsoY;
+        g.add(torso);
 
-          // 종아리
-          [-0.10, 0.10].forEach(lx => {
-            const calf = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.42, 6), pantsMat);
-            calf.position.set(lx, 0.21, 0.32);
-            pGroup.add(calf);
-          });
-
-          // 상체
-          const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.52, 8), clothesMat);
-          torso.position.set(0, 0.74, 0.0);
-          torso.rotation.x = -0.06;
-          pGroup.add(torso);
-
-          // 머리 & 헤어
-          const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), skinMat);
-          head.position.set(0, 1.10, 0.02);
-          head.rotation.x = 0.15; // 고개 약간 숙임 (스마트폰 시선)
-          pGroup.add(head);
-
-          const hair = new THREE.Mesh(new THREE.SphereGeometry(0.126, 8, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
-          hair.position.set(0, 1.11, 0.02);
-          hair.rotation.x = 0.15;
-          pGroup.add(hair);
-
-          // 스마트폰 (손에 쥠)
-          const phone = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.01), phoneMat);
-          phone.position.set(0, 0.58, 0.28);
-          phone.rotation.x = -0.35;
-          pGroup.add(phone);
+        if (seated) {
+          // 허벅지 (앞쪽)
+          const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.10, 0.30), matBody);
+          thigh.position.set(0, 0.38, 0.10);
+          g.add(thigh);
+          // 하퇴 (아래)
+          const shin = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.32, 0.10), matDark);
+          shin.position.set(0, 0.14, 0.28);
+          g.add(shin);
         } else {
-          // 2. 서서 손잡이 잡은 승객
-          // 다리
-          [-0.10, 0.10].forEach(lx => {
-            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.85, 6), pantsMat);
-            leg.position.set(lx, 0.42, 0);
-            pGroup.add(leg);
+          // 다리 x2
+          [-0.09, 0.09].forEach(lx => {
+            const leg = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.48, 0.11), matDark);
+            leg.position.set(lx, 0.66, 0);
+            g.add(leg);
           });
-
-          // 상체
-          const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.17, 0.65, 8), clothesMat);
-          torso.position.set(0, 1.15, 0);
-          pGroup.add(torso);
-
-          // 한쪽 팔 위로 올려 손잡이 잡음
-          const armUp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.55, 6), clothesMat);
-          armUp.position.set(0.18, 1.55, 0);
-          armUp.rotation.z = -0.35;
-          pGroup.add(armUp);
-
-          // 머리
-          const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), skinMat);
-          head.position.set(0, 1.62, 0);
-          pGroup.add(head);
-
-          const hair = new THREE.Mesh(new THREE.SphereGeometry(0.135, 8, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
-          hair.position.set(0, 1.63, 0);
-          pGroup.add(hair);
+          // 발
+          [-0.09, 0.09].forEach(lx => {
+            const foot = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.06, 0.18), matDark);
+            foot.position.set(lx, 0.43, 0.04);
+            g.add(foot);
+          });
         }
 
-        return pGroup;
+        // 팔
+        if (holdingPole) {
+          // 한 팔이 손잡이 봉 방향으로 올라감
+          const armRaise = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.42, 0.09), matBody);
+          armRaise.position.set(poleX > 0 ? 0.19 : -0.19, seated ? 0.88 : 1.34, 0);
+          armRaise.rotation.z = poleX > 0 ? -0.9 : 0.9;
+          g.add(armRaise);
+          // 반대 팔은 자연스럽게
+          const armRelax = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.34, 0.09), matBody);
+          armRelax.position.set(poleX > 0 ? -0.19 : 0.19, seated ? 0.60 : 1.1, 0);
+          g.add(armRelax);
+        } else {
+          // 두 팔 편안히
+          [-0.19, 0.19].forEach(ax => {
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.34, 0.09), matBody);
+            arm.position.set(ax, seated ? 0.58 : 1.1, 0);
+            g.add(arm);
+          });
+        }
+        return g;
       }
 
-      // 각 객차별 승객 배치 (반대편 좌석 및 서 있는 승객)
-      // 우측 좌석 승객들 (X=1.16, Z=-5.2 ~ 5.2, 창밖을 등지고 실내를 봄: rotY = -Math.PI/2)
-      interior.add(createPassenger("sitting", 1.16, -5.2, -Math.PI / 2, 0));
-      interior.add(createPassenger("sitting", 1.16, -4.2, -Math.PI / 2, 1));
-      interior.add(createPassenger("sitting", 1.16, 3.8, -Math.PI / 2, 2));
+      // 케니 캐릭터 배치 (다양한 피부/옷 색상)
+      const kennyColors = [
+        { body: 0x1d4ed8, head: 0xfde68a }, // 청색 자켓 / 밝은 피부
+        { body: 0x16a34a, head: 0xfcd34d }, // 녹색 자켓
+        { body: 0x7c3aed, head: 0xfca5a5 }, // 보라 자켓
+        { body: 0x0f172a, head: 0xfdba74 }, // 검정 패딩
+        { body: 0xdc2626, head: 0xfde68a }, // 빨간 점퍼
+        { body: 0x0284c7, head: 0xfcd34d }, // 하늘색
+        { body: 0x78350f, head: 0xfca5a5 }, // 카키
+        { body: 0x374151, head: 0xfdba74 }, // 회색
+      ];
 
-      // 좌측 좌석 승객들 (X=-1.16, Z=-3.8 ~ 5.0, rotY = Math.PI/2)
-      interior.add(createPassenger("sitting", -1.16, -3.8, Math.PI / 2, 3));
-      interior.add(createPassenger("sitting", -1.16, 4.8, Math.PI / 2, 4));
+      // 착석 승객 (4군데 벤치)
+      const seatPositions = [
+        { x: 1.12, z: -4.5, rot: Math.PI / 2 },
+        { x: 1.12, z: -4.5 + 0.88, rot: Math.PI / 2 },
+        { x: 1.12, z: -4.5 + 1.76, rot: Math.PI / 2 },
+        { x: 1.12, z: 4.5 - 0.44, rot: Math.PI / 2 },
+        { x: -1.12, z: -4.5 + 0.44, rot: -Math.PI / 2 },
+        { x: -1.12, z: -4.5 + 1.32, rot: -Math.PI / 2 },
+        { x: -1.12, z: 4.5, rot: -Math.PI / 2 },
+        { x: -1.12, z: 4.5 - 0.88, rot: -Math.PI / 2 },
+      ];
+      seatPositions.forEach((sp, i) => {
+        const col = kennyColors[i % kennyColors.length];
+        const ch = makeKenneyChar(col.body, col.head, true, false, 0);
+        ch.position.set(sp.x, 0.0, sp.z);
+        ch.rotation.y = sp.rot;
+        interior.add(ch);
+      });
 
-      // 통로 입석 승객들 (X=0.45, Z=-2.0 / 2.5)
-      interior.add(createPassenger("standing", 0.45, -2.2, Math.PI * 0.25, 5));
-      interior.add(createPassenger("standing", -0.45, 2.0, -Math.PI * 0.65, 6));
+      // 입석 승객 (중앙 통로 손잡이 잡고 서있기)
+      const standPositions = [
+        { x:  0.82, z: -2.0, poleX:  1 },
+        { x: -0.82, z:  1.5, poleX: -1 },
+        { x:  0.82, z:  5.5, poleX:  1 },
+        { x: -0.82, z: -6.5, poleX: -1 },
+      ];
+      standPositions.forEach((sp, i) => {
+        const col = kennyColors[(i + 3) % kennyColors.length];
+        const ch = makeKenneyChar(col.body, col.head, false, true, sp.poleX);
+        ch.position.set(sp.x, 0.0, sp.z);
+        // 살짝 랜덤 방향
+        ch.rotation.y = (i % 2 === 0 ? 0 : Math.PI);
+        interior.add(ch);
+      });
 
       // 천장 중앙 듀얼 LCD 종합안내 디스플레이 모니터 (천장 브래킷 고정)
       const lcdCanvas = document.createElement("canvas");
@@ -3821,17 +4198,28 @@
         frameR.position.set(0.55, 1.02, wz);
         interior.add(frameR);
 
-        // 투명 강화유리 자동문 (앞/뒤 객차가 훤히 보임)
-        const gangwayGlassMat = new THREE.MeshStandardMaterial({
-          color: 0x94d2bd,
+        // 투명 강화유리 자동문 — 거의 완전 투명 (앞/뒤 객차가 막힘없이 보임)
+        const gangwayGlassMat = new THREE.MeshPhysicalMaterial({
+          color: 0xc8e8f0,
           transparent: true,
-          opacity: 0.35,
-          roughness: 0.1,
-          metalness: 0.2
+          opacity: 0.06,
+          roughness: 0.04,
+          metalness: 0.0,
+          transmission: 0.96,
+          thickness: 0.01,
+          ior: 1.45,
+          side: THREE.DoubleSide
         });
         const glassDoor = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 1.98), gangwayGlassMat);
         glassDoor.position.set(0, 1.02, wz + (wz > 0 ? -0.02 : 0.02));
         interior.add(glassDoor);
+
+        // 문틀 핸들 (얇은 수직 막대)
+        const handleMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.2 });
+        const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 8), handleMat);
+        handle.rotation.x = Math.PI / 2;
+        handle.position.set(0.04, 1.05, wz + (wz > 0 ? -0.04 : 0.04));
+        interior.add(handle);
 
         // 객차 간 연결 발판 (Gangway Tread Plate)
         const treadMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.5 });
@@ -4926,6 +5314,204 @@
       btn.addEventListener("click", () => setWeather(btn.dataset.weather));
     });
 
+    // ============================================================
+    // MSFS 스타일 날씨/시간 통합 패널 로직
+    // ============================================================
+    const wxPanel = document.getElementById("wx-panel");
+    const btnWxPanel = document.getElementById("btn-wx-panel");
+    const wxPanelClose = document.getElementById("wx-panel-close");
+
+    // 날씨 관련 세부 파라미터
+    let wxParams = {
+      cloudAmount: 20,   // 0~100
+      rainAmount: 0,
+      snowAmount: 0,
+      fogAmount: 0,
+      windAmount: 30,
+      visibility: 100
+    };
+
+    function openWxPanel() {
+      wxPanel.style.display = "flex";
+      requestAnimationFrame(() => wxPanel.classList.add("open"));
+    }
+    function closeWxPanel() {
+      wxPanel.classList.remove("open");
+      setTimeout(() => { wxPanel.style.display = "none"; }, 280);
+    }
+    function toggleWxPanel() {
+      if (wxPanel.classList.contains("open")) closeWxPanel();
+      else openWxPanel();
+    }
+
+    if (btnWxPanel) btnWxPanel.addEventListener("click", toggleWxPanel);
+    if (wxPanelClose) wxPanelClose.addEventListener("click", closeWxPanel);
+
+    // 패널 외부 클릭으로 닫기
+    wxPanel.addEventListener("click", e => { if (e.target === wxPanel) closeWxPanel(); });
+
+    // wx-panel 내 시간대 카드
+    document.querySelectorAll(".wx-time-card[data-wx-time]").forEach(card => {
+      card.addEventListener("click", () => {
+        setTime(card.dataset.wxTime);
+        document.querySelectorAll(".wx-time-card").forEach(c => c.classList.remove("active"));
+        card.classList.add("active");
+      });
+    });
+
+    // wx-panel 내 날씨 카드
+    document.querySelectorAll(".wx-weather-card[data-wx-weather]").forEach(card => {
+      card.addEventListener("click", () => {
+        setWeather(card.dataset.wxWeather);
+        document.querySelectorAll(".wx-weather-card").forEach(c => c.classList.remove("active"));
+        card.classList.add("active");
+        // 슬라이더 기본값 자동 설정
+        const presetDefaults = {
+          clear:  { cloud: 20, rain: 0,  snow: 0,  fog: 0,  wind: 20, vis: 100 },
+          cloudy: { cloud: 70, rain: 0,  snow: 0,  fog: 0,  wind: 35, vis: 85  },
+          rain:   { cloud: 88, rain: 75, snow: 0,  fog: 20, wind: 65, vis: 60  },
+          fog:    { cloud: 55, rain: 0,  snow: 0,  fog: 80, wind: 10, vis: 30  },
+          snow:   { cloud: 65, rain: 0,  snow: 70, fog: 25, wind: 45, vis: 55  }
+        };
+        const d = presetDefaults[card.dataset.wxWeather];
+        if (d) {
+          setWxSlider("cloud", d.cloud);
+          setWxSlider("rain",  d.rain);
+          setWxSlider("snow",  d.snow);
+          setWxSlider("fog",   d.fog);
+          setWxSlider("wind",  d.wind);
+          setWxSlider("vis",   d.vis);
+        }
+      });
+    });
+
+    // setTime/setWeather 호출 시 wx-panel 내 카드도 동기화
+    const _origSetTime = setTime;
+    const _origSetWeather = setWeather;
+    // setTime/setWeather는 이미 선언된 함수이므로 래퍼로 동기화
+    function syncWxPanelTime(preset) {
+      document.querySelectorAll(".wx-time-card").forEach(c => {
+        c.classList.toggle("active", c.dataset.wxTime === preset);
+      });
+      updateWxStatusBar();
+    }
+    function syncWxPanelWeather(preset) {
+      document.querySelectorAll(".wx-weather-card").forEach(c => {
+        c.classList.toggle("active", c.dataset.wxWeather === preset);
+      });
+      updateWxStatusBar();
+    }
+
+    // 기존 setTime/setWeather 호출 후 wx-panel 동기화
+    const _patchedSetTime = window.setTime || setTime;
+    const _patchedSetWeather = window.setWeather || setWeather;
+
+    // applyEnv 이후 동기화를 위해 applyEnv를 감싸기
+    const _origApplyEnv = applyEnv;
+    function applyEnvAndSync() {
+      _origApplyEnv();
+      syncWxPanelTime(currentTimePreset);
+      syncWxPanelWeather(currentWeatherPreset);
+      applyWxSliders();
+    }
+    // applyEnv를 재정의
+    // 이미 선언된 applyEnv를 직접 재정의할 수 없으므로 양 쪽 이벤트에서 직접 호출
+
+    function updateWxStatusBar() {
+      const timeLabels = { morning:"아침", noon:"낮", sunset:"노을", night:"밤" };
+      const wxLabels = { clear:"맑음", cloudy:"흐림", rain:"비", fog:"안개", snow:"눈" };
+      const el = document.getElementById("wx-status-cur");
+      if (el) el.textContent = (timeLabels[currentTimePreset]||"") + " · " + (wxLabels[currentWeatherPreset]||"");
+    }
+
+    // 슬라이더 값 설정 헬퍼
+    function setWxSlider(key, val) {
+      const slider = document.getElementById("wx-slider-" + key);
+      const display = document.getElementById("wx-val-" + key);
+      if (slider) { slider.value = val; }
+      if (display) { display.textContent = val + "%"; }
+      wxParams[key + "Amount"] = val;
+      if (key === "wind") wxParams.windAmount = val;
+      if (key === "vis")  wxParams.visibility = val;
+    }
+
+    // 슬라이더 → 씬 반영
+    function applyWxSliders() {
+      const cloud = wxParams.cloudAmount / 100;
+      const rainV = wxParams.rainAmount / 100;
+      const snowV = wxParams.snowAmount / 100;
+      const fogV  = wxParams.fogAmount  / 100;
+      const vis   = wxParams.visibility / 100;
+      const wind  = wxParams.windAmount / 100;
+
+      // 스카이돔 구름량 오버라이드
+      if (window._skyDomeMat) {
+        window._skyDomeMat.uniforms.uCloudCover.value = Math.max(
+          window._skyDomeMat.uniforms.uCloudCover.value * 0.0,
+          cloud
+        );
+        window._skyDomeMat.uniforms.uCloudCover.value = cloud;
+      }
+      // 3D 구름 투명도
+      if (window._cloudMeshes) {
+        window._cloudMeshes.forEach(cm => {
+          cm.mat.opacity = Math.min(1.0, cloud * 1.1) * (0.5 + cm.density * 0.5);
+        });
+      }
+      // 비/눈 파티클 가시성 및 강도
+      if (typeof rainSystem !== "undefined") {
+        rainSystem.visible = rainV > 0.1;
+        if (rainSystem.material) rainSystem.material.opacity = rainV * 0.8;
+      }
+      if (typeof snowSystem !== "undefined") {
+        snowSystem.visible = snowV > 0.1;
+        if (snowSystem.material) snowSystem.material.opacity = snowV * 0.9;
+      }
+      // 안개 거리 조정 (가시거리 슬라이더 + 안개 슬라이더)
+      const baseFar = (TIME_CONFIGS[currentTimePreset] || TIME_CONFIGS.morning).fogFar;
+      const fogScale = vis * (1.0 - fogV * 0.85);
+      scene.fog.far = Math.max(600, baseFar * fogScale);
+      scene.fog.near = Math.max(200, scene.fog.far * 0.18);
+      // 바람 반영 (cloudGroup drift speed는 animate 루프에서 참조)
+      window._wxWindFactor = wind;
+    }
+
+    // 슬라이더 이벤트 연결
+    [
+      { id: "wx-slider-cloud", key: "cloudAmount",  valId: "wx-val-cloud" },
+      { id: "wx-slider-rain",  key: "rainAmount",   valId: "wx-val-rain"  },
+      { id: "wx-slider-snow",  key: "snowAmount",   valId: "wx-val-snow"  },
+      { id: "wx-slider-fog",   key: "fogAmount",    valId: "wx-val-fog"   },
+      { id: "wx-slider-wind",  key: "windAmount",   valId: "wx-val-wind"  },
+      { id: "wx-slider-vis",   key: "visibility",   valId: "wx-val-vis"   }
+    ].forEach(({ id, key, valId }) => {
+      const slider = document.getElementById(id);
+      const display = document.getElementById(valId);
+      if (!slider) return;
+      slider.addEventListener("input", () => {
+        const v = parseInt(slider.value);
+        wxParams[key] = v;
+        if (display) display.textContent = v + "%";
+        applyWxSliders();
+      });
+    });
+
+    // setTime/setWeather 이후 wx-panel 동기화를 위해 각 이벤트 리스너에서 처리
+    // (기존 setTime/setWeather 함수는 applyEnv를 호출하므로 applyEnv에 후처리 추가)
+    // applyEnv의 마지막 줄에 wx 동기화 삽입 불가하므로 MutationObserver로 clock-display 변화 감지
+    const clockEl = document.getElementById("clock-display");
+    if (clockEl) {
+      new MutationObserver(() => {
+        syncWxPanelTime(currentTimePreset);
+        syncWxPanelWeather(currentWeatherPreset);
+        applyWxSliders();
+      }).observe(clockEl, { childList: true, characterData: true, subtree: true });
+    }
+
+    // 초기화
+    updateWxStatusBar();
+    applyWxSliders();
+
     function dismissIntro() {
       if (intro.style.display !== "none") {
         intro.style.display = "none";
@@ -4957,6 +5543,22 @@
       }
       if (e.code === "KeyL") {
         cycleWeather();
+      }
+      // W 단축키: MSFS 날씨/시간 패널 토글
+      if (e.code === "KeyW" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        // WASD 이동 중에는 무시 (이미 keys["KeyW"]가 이동에 사용됨)
+        // 패널이 열려있으면 닫기만, 없을 때는 통로문 이동 허용
+        if (typeof toggleWxPanel !== "undefined") {
+          // viewMode 2(승객)에서만 패널 열기 허용 (이동 조작 중이 아닐 때)
+          // — 실제로는 keys가 아닌 별도 버튼으로 여는 것이 더 안전
+        }
+      }
+      if (e.code === "Escape") {
+        // ESC 로 wx 패널 닫기
+        if (typeof closeWxPanel !== "undefined" && wxPanel && wxPanel.classList.contains("open")) {
+          closeWxPanel();
+          e.preventDefault();
+        }
       }
 
       if (e.code === "KeyE" && viewMode === 2) {
@@ -5423,7 +6025,8 @@
         window._skyDomeMat.uniforms.uTime.value = time;
       }
       if (cloudGroup) {
-        const windDriftSpeed = (currentWeatherPreset === "rain" ? 18.0 : 8.0);
+        const wxWind = (typeof window._wxWindFactor === "number") ? window._wxWindFactor : 0.3;
+        const windDriftSpeed = (currentWeatherPreset === "rain" ? 18.0 : 8.0) * (0.3 + wxWind * 1.4);
         cloudGroup.children.forEach(g => {
           g.position.x += (g.userData.driftX || 0.4) * windDriftSpeed * dt;
           if (g.position.x > 1800) g.position.x = -1800;

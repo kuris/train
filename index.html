@@ -1005,6 +1005,12 @@
         this.realRainAudio = null;
         this.initDone = false;
         this.isRaining = false;
+        this.audioCtx = null;
+        this.windGain = null;
+        this.windFilter = null;
+        this.windSpeedKmh = 0;
+        this.windWeather = "clear";
+        this.windGustTimer = 0;
       }
       init() {
         if (this.initDone) return;
@@ -1019,6 +1025,47 @@
           this.realRainAudio.loop = true;
           this.realRainAudio.volume = 0.0;
           this.realRainAudio.play().catch(() => {});
+
+          // 절차적 한강 바람 소리 (Web Audio API)
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            this.audioCtx = new AudioContextClass();
+            const bufferSize = 2 * this.audioCtx.sampleRate;
+            const noiseBuffer = this.audioCtx.createBuffer(1, bufferSize, this.audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            let b0 = 0, b1 = 0, b2 = 0;
+            for (let i = 0; i < bufferSize; i++) {
+              const white = Math.random() * 2 - 1;
+              b0 = 0.99 * b0 + white * 0.05;
+              b1 = 0.95 * b1 + white * 0.1;
+              b2 = 0.85 * b2 + white * 0.25;
+              output[i] = (b0 + b1 + b2) * 0.35;
+            }
+            const whiteNoise = this.audioCtx.createBufferSource();
+            whiteNoise.buffer = noiseBuffer;
+            whiteNoise.loop = true;
+
+            const bandpass = this.audioCtx.createBiquadFilter();
+            bandpass.type = "bandpass";
+            bandpass.frequency.setValueAtTime(320, this.audioCtx.currentTime);
+            bandpass.Q.setValueAtTime(1.4, this.audioCtx.currentTime);
+
+            const lowpass = this.audioCtx.createBiquadFilter();
+            lowpass.type = "lowpass";
+            lowpass.frequency.setValueAtTime(650, this.audioCtx.currentTime);
+
+            const gain = this.audioCtx.createGain();
+            gain.gain.setValueAtTime(0.06, this.audioCtx.currentTime);
+
+            whiteNoise.connect(bandpass);
+            bandpass.connect(lowpass);
+            lowpass.connect(gain);
+            gain.connect(this.audioCtx.destination);
+            whiteNoise.start(0);
+
+            this.windGain = gain;
+            this.windFilter = lowpass;
+          }
         } catch (_) {}
       }
       setRain(active) {
@@ -1032,7 +1079,11 @@
           }
         }
       }
+      setWeather(weather) {
+        this.windWeather = weather;
+      }
       update(speedKmh) {
+        this.windSpeedKmh = speedKmh;
         // 가속/감속 시 오실로스코프식 주파수 변조 없이 일정한 1.0배속으로 실제 레일 마찰음만 자연스럽게 재생
         if (this.realRunAudio) {
           if (speedKmh > 1.0) {
@@ -1042,6 +1093,43 @@
           } else {
             this.realRunAudio.volume = 0.0;
           }
+        }
+      }
+      updateWind(dt, time) {
+        if (!this.windGain || !this.audioCtx) return;
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().catch(() => {});
+        }
+        // 날씨별 기본 바람 세기
+        let baseVol = 0.06;
+        let baseCutoff = 450;
+        if (this.windWeather === "rain") {
+          baseVol = 0.16;
+          baseCutoff = 750;
+        } else if (this.windWeather === "snow") {
+          baseVol = 0.11;
+          baseCutoff = 550;
+        } else if (this.windWeather === "cloudy") {
+          baseVol = 0.09;
+          baseCutoff = 500;
+        } else if (this.windWeather === "fog") {
+          baseVol = 0.04;
+          baseCutoff = 380;
+        }
+        // 열차 주행 맞바람 추가
+        const trainWindRatio = Math.min(1.0, this.windSpeedKmh / 80.0);
+        baseVol += trainWindRatio * 0.14;
+        baseCutoff += trainWindRatio * 500;
+
+        // 돌풍(Gust) 변조: 저주파 사인파 합성
+        const gust = Math.sin(time * 0.8) * 0.25 + Math.cos(time * 1.7) * 0.15;
+        const targetVol = Math.max(0.01, baseVol * (1.0 + gust));
+        const targetCutoff = Math.max(200, baseCutoff + gust * 200);
+
+        const curr = this.audioCtx.currentTime;
+        this.windGain.gain.setTargetAtTime(targetVol, curr, 0.12);
+        if (this.windFilter) {
+          this.windFilter.frequency.setTargetAtTime(targetCutoff, curr, 0.15);
         }
       }
     }
@@ -1113,8 +1201,200 @@
     scene.add(sunLight);
 
     // ------------------------------------------------------------
-    // 3. 하늘 & 배경 (scene.background 및 scene.fog로 무한 원거리까지 완벽한 청명 하늘 유지, 원형 왜곡 완전 제거)
+    // 3. 하늘 & 배경: 절차적 스카이돔 + 3D 구름 시스템
     // ------------------------------------------------------------
+
+    // 스카이돔 (그라디언트 하늘 셰이더)
+    const skyDomeMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: {
+        uTopColor:    { value: new THREE.Color(0x2a6eb0) },
+        uHorizonColor:{ value: new THREE.Color(0x8ec2eb) },
+        uGroundColor: { value: new THREE.Color(0x6a7a5a) },
+        uSunDir:      { value: new THREE.Vector3(0.5, 0.8, 0.4).normalize() },
+        uSunColor:    { value: new THREE.Color(1.0, 0.96, 0.88) },
+        uSunGlow:     { value: 180.0 },
+        uTime:        { value: 0.0 },
+        uCloudCover:  { value: 0.0 },  // 0=맑음 1=완전 흐림
+        uMoonPhase:   { value: 0.0 },  // 0=낮 1=밤
+      },
+      vertexShader: `
+        varying vec3 vWorldDir;
+        void main() {
+          vWorldDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uTopColor;
+        uniform vec3 uHorizonColor;
+        uniform vec3 uGroundColor;
+        uniform vec3 uSunDir;
+        uniform vec3 uSunColor;
+        uniform float uSunGlow;
+        uniform float uTime;
+        uniform float uCloudCover;
+        uniform float uMoonPhase;
+        varying vec3 vWorldDir;
+
+        float hash(vec2 p) {
+          p = fract(p * vec2(234.34, 435.345));
+          p += dot(p, p + 34.23);
+          return fract(p.x * p.y);
+        }
+        float noise(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(hash(i), hash(i+vec2(1,0)), f.x),
+                     mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+        }
+        float fbm(vec2 p) {
+          float v = 0.0, a = 0.5;
+          for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.1; a *= 0.5; }
+          return v;
+        }
+
+        void main() {
+          vec3 dir = normalize(vWorldDir);
+          float upY = dir.y;
+
+          // 기본 하늘 그라디언트
+          float t = clamp(upY * 1.4 + 0.1, 0.0, 1.0);
+          vec3 skyColor = mix(uHorizonColor, uTopColor, t * t);
+
+          // 지평선 아래 땅색
+          if (upY < 0.0) {
+            skyColor = mix(uHorizonColor, uGroundColor, clamp(-upY * 5.0, 0.0, 1.0));
+          }
+
+          // 태양 디스크 & 코로나
+          float sunDot = max(0.0, dot(dir, normalize(uSunDir)));
+          float sunDisc = pow(sunDot, uSunGlow);
+          float corona = pow(sunDot, 8.0) * 0.4;
+          if (uMoonPhase < 0.5) {
+            skyColor += uSunColor * (sunDisc * 3.5 + corona);
+            // 태양 주변 오렌지 헤이즈
+            float haze = pow(sunDot, 3.0) * 0.35 * (1.0 - upY);
+            skyColor = mix(skyColor, uSunColor * 1.4, haze);
+          }
+
+          // 밤: 별 + 달
+          if (uMoonPhase > 0.3) {
+            float nightT = smoothstep(0.3, 0.85, uMoonPhase);
+            // 별 (노이즈 점)
+            vec2 starUV = dir.xz / (abs(dir.y) + 0.001) * 5.0;
+            float star = step(0.988, hash(floor(starUV * 80.0)));
+            float twinkle = 0.7 + 0.3 * sin(uTime * 2.0 + hash(floor(starUV * 40.0)) * 10.0);
+            skyColor += vec3(1.0, 0.95, 0.9) * star * twinkle * nightT * 1.8;
+
+            // 달 (작은 원)
+            vec3 moonDir = normalize(vec3(-0.6, 0.7, 0.3));
+            float moonDot = max(0.0, dot(dir, moonDir));
+            float moonDisc = pow(moonDot, 2000.0);
+            float moonGlow = pow(moonDot, 25.0) * 0.15;
+            skyColor += vec3(0.9, 0.95, 1.0) * (moonDisc * 2.0 + moonGlow) * nightT;
+          }
+
+          // 구름 레이어
+          if (upY > 0.02 && uCloudCover > 0.0) {
+            vec2 cloudUV = dir.xz / (dir.y + 0.001) * 0.15 + vec2(uTime * 0.003, 0.0);
+            float cloud1 = fbm(cloudUV * 2.5);
+            float cloud2 = fbm(cloudUV * 5.0 + vec2(0.5));
+            float cloudMask = smoothstep(0.48 - uCloudCover * 0.18, 0.68, cloud1 * 0.6 + cloud2 * 0.4);
+            float cloudTop = cloudMask * cloudMask;
+
+            // 구름 음영 (아래면 어두운)
+            float shadow = fbm(cloudUV * 3.0 + vec2(0.02, 0.01)) * 0.3;
+            vec3 cloudColor = mix(
+              vec3(0.5, 0.52, 0.55),   // 어두운 구름 하면
+              vec3(0.97, 0.97, 1.0),    // 밝은 구름 상면
+              clamp(cloudTop - shadow, 0.0, 1.0)
+            );
+            // 노을 구름 틴트
+            cloudColor = mix(cloudColor, uSunColor * 1.1, cloudTop * 0.35 * (1.0 - uMoonPhase));
+
+            skyColor = mix(skyColor, cloudColor, cloudMask * clamp(uCloudCover * 2.0, 0.0, 1.0));
+          }
+
+          gl_FragColor = vec4(skyColor, 1.0);
+        }
+      `
+    });
+
+    const skyDome = new THREE.Mesh(new THREE.SphereGeometry(5500, 32, 20), skyDomeMat);
+    scene.add(skyDome);
+
+    // 안개
+    scene.fog = new THREE.Fog(0x8ec2eb, 1600, 7500);
+
+    // 3D 볼류메트릭 구름 메시 (누적란·고적운 스타일)
+    const cloudGroup = new THREE.Group();
+    const cloudMeshes = [];
+
+    function makeCloudMesh(x, y, z, scaleX, scaleY, scaleZ, density) {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0.96, 0.97, 1.0),
+        transparent: true,
+        opacity: 0.0,  // applyEnv에서 날씨에 따라 조절
+        roughness: 1.0,
+        metalness: 0.0,
+        depthWrite: false,
+      });
+      const blobs = Math.floor(5 + density * 8);
+      for (let i = 0; i < blobs; i++) {
+        const r = 0.6 + Math.random() * 0.9;
+        const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 7), mat.clone());
+        blob.position.set(
+          (Math.random() - 0.5) * 2.8,
+          (Math.random() - 0.5) * 0.6,
+          (Math.random() - 0.5) * 1.5
+        );
+        blob.scale.set(1.0, 0.55, 0.9);
+        g.add(blob);
+      }
+      g.position.set(x, y, z);
+      g.scale.set(scaleX, scaleY, scaleZ);
+      g.userData.baseY = y;
+      g.userData.driftX = (Math.random() - 0.5) * 0.8;  // 바람 방향별 속도
+      cloudGroup.add(g);
+      cloudMeshes.push({ group: g, mat, density });
+    }
+
+    // 구름 배치 (하늘 여러 고도에 분산)
+    const cloudSeeds = [
+      // [x, y, z, sx, sy, sz, density]
+      [-800, 520, -600, 55, 22, 40, 0.7],
+      [200, 560, -400, 70, 18, 55, 0.8],
+      [900, 490, -200, 45, 20, 38, 0.6],
+      [-400, 600, 300, 80, 25, 60, 0.75],
+      [600, 540, 500, 50, 18, 42, 0.65],
+      [-1000, 470, 800, 60, 22, 48, 0.72],
+      [1100, 520, -800, 65, 20, 52, 0.68],
+      [-200, 580, 1000, 75, 28, 58, 0.8],
+      [400, 510, -1000, 55, 22, 44, 0.7],
+      [-700, 620, -150, 90, 30, 70, 0.85],
+      [800, 580, 200, 62, 22, 50, 0.73],
+      [-300, 490, 600, 48, 18, 38, 0.62],
+      // 낮은 구름 (비/흐림 때 사용)
+      [-600, 320, -300, 85, 15, 65, 0.9],
+      [300, 300, 400, 95, 14, 72, 0.92],
+      [700, 340, -500, 78, 16, 60, 0.88],
+    ];
+
+    cloudSeeds.forEach(([x, y, z, sx, sy, sz, d]) => makeCloudMesh(x, y, z, sx, sy, sz, d));
+    scene.add(cloudGroup);
+
+    // 번개 플래시 효과
+    const lightningFlash = new THREE.PointLight(0xd0e8ff, 0, 3000);
+    lightningFlash.position.set(0, 500, 0);
+    scene.add(lightningFlash);
+    window._lightning = { light: lightningFlash, timer: 0, active: false };
+
+    // applyEnv에서 사용할 스카이 유니폼 참조
+    window._skyDomeMat = skyDomeMat;
+    window._cloudMeshes = cloudMeshes;
 
     // ------------------------------------------------------------
     // 4. 드넓은 한강 수면 & 게르스트너 파도 & 찬란한 아침 윤슬 (강 & 물결)
@@ -2242,6 +2522,363 @@
 
     scene.add(lampGroup);
     window._lampGroup = lampGroup;
+
+    // ============================================================
+    // 사실감 극대화: 2호선 지상 고가역사 (잠실나루역 / 강변역) & 도심 밀도 디테일
+    // ============================================================
+    const stationGroup = new THREE.Group();
+
+    // 역명판 텍스처 생성 헬퍼 (서울 2호선 서울교통공사 표준 디자인)
+    function createStationSignTexture(stationName, stationCode, nextName, prevName) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext("2d");
+
+      // 배경 (짙은 네이비/차콜 메탈)
+      ctx.fillStyle = "#1e242d";
+      ctx.fillRect(0, 0, 512, 128);
+
+      // 상단 2호선 시그니처 그린 라인 (#3CB44A)
+      ctx.fillStyle = "#3CB44A";
+      ctx.fillRect(0, 0, 512, 16);
+
+      // 역 번호 원형 배지
+      ctx.beginPath();
+      ctx.arc(68, 70, 34, 0, Math.PI * 2);
+      ctx.fillStyle = "#3CB44A";
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 26px -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(stationCode, 68, 70);
+
+      // 역명 (한글)
+      ctx.textAlign = "left";
+      ctx.font = "bold 38px -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif";
+      ctx.fillStyle = "#ffffff";
+      ctx.fillText(stationName, 120, 58);
+
+      // 영문 역명 및 이전/다음역 안내
+      ctx.font = "500 18px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillStyle = "#a8b5c4";
+      ctx.fillText(stationName === "잠실나루" ? "Jamsillaru" : "Gangbyeon", 124, 94);
+
+      // 이전 / 다음역 화살표
+      ctx.textAlign = "right";
+      ctx.font = "600 16px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.fillStyle = "#7ca0c5";
+      ctx.fillText("◀ " + prevName + "  |  " + nextName + " ▶", 496, 70);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 4;
+      return tex;
+    }
+
+    // 2호선 고가역사 조립 함수
+    function buildLine2ElevatedStation(name, code, posX, posY, posZ, rotY, nextName, prevName) {
+      const st = new THREE.Group();
+      st.position.set(posX, posY, posZ);
+      st.rotation.y = rotY;
+
+      const concMat = new THREE.MeshStandardMaterial({ color: 0xc4c7cc, roughness: 0.82, metalness: 0.1 });
+      const platMat = new THREE.MeshStandardMaterial({ color: 0xd6d8dc, roughness: 0.75, metalness: 0.12 });
+      const yellowTileMat = new THREE.MeshStandardMaterial({ color: 0xf5c518, roughness: 0.5 });
+      const darkSteelMat = new THREE.MeshStandardMaterial({ color: 0x2b333c, roughness: 0.45, metalness: 0.8 });
+      const psdGlassMat = new THREE.MeshStandardMaterial({ color: 0xa8d0e6, transparent: true, opacity: 0.65, roughness: 0.15, metalness: 0.3 });
+      const line2GreenMat = new THREE.MeshStandardMaterial({ color: 0x3cb44a, roughness: 0.4, metalness: 0.2 });
+      const roofGlassMat = new THREE.MeshStandardMaterial({ color: 0xbde2f5, transparent: true, opacity: 0.5, roughness: 0.2 });
+
+      const signTex = createStationSignTexture(name, code, nextName, prevName);
+      const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+
+      const len = 120; // 6량 열차 수용 가능한 현실적 컴팩트 승강장 길이
+      const platW = 4.4; // 승강장 폭
+      const platOffset = 6.4; // 선로 중심에서 승강장 중심까지 거리
+
+      // 1. 하부 지지 콘크리트 교각 기둥 (Y= -16 에서 승강장 하부까지)
+      for (let z = -len / 2 + 10; z <= len / 2 - 10; z += 24) {
+        [-platOffset, platOffset].forEach(px => {
+          const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, posY, 12), concMat);
+          pier.position.set(px, -posY / 2, z);
+          pier.castShadow = true;
+          st.add(pier);
+
+          // 교각 캡 상판 지지대
+          const cap = new THREE.Mesh(new THREE.BoxGeometry(platW + 1.2, 1.0, 3.2), concMat);
+          cap.position.set(px, -0.5, z);
+          st.add(cap);
+        });
+
+        // 궤도 지지 가로보
+        const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2, 0.9, 2.2), darkSteelMat);
+        crossBeam.position.set(0, -0.6, z);
+        st.add(crossBeam);
+      }
+
+      // 2. 상대식 승강장 바닥 슬라브 (좌우 2면)
+      [-1, 1].forEach(side => {
+        const px = side * platOffset;
+
+        // 콘크리트 슬라브
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(platW, 0.7, len), platMat);
+        slab.position.set(px, -0.35, 0);
+        slab.receiveShadow = true;
+        st.add(slab);
+
+        // 노란색 점자 안전선 타일 (선로 측 가장자리)
+        const edgeX = px - side * (platW / 2 - 0.25);
+        const yellowLine = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.04, len), yellowTileMat);
+        yellowLine.position.set(edgeX, 0.02, 0);
+        st.add(yellowLine);
+
+        // 반밀폐형 스크린도어 (PSD) 프레임 & 유리
+        const psdLen = len - 10;
+        const psdFence = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.1, psdLen), darkSteelMat);
+        psdFence.position.set(edgeX + side * 0.08, 1.05, 0);
+        st.add(psdFence);
+
+        // 스크린도어 유리 패널
+        const psdGlass = new THREE.Mesh(new THREE.PlaneGeometry(psdLen, 1.6), psdGlassMat);
+        psdGlass.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+        psdGlass.position.set(edgeX + side * 0.08, 1.1, 0);
+        st.add(psdGlass);
+
+        // 상단 2호선 시그니처 그린 헤더 띠
+        const psdHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.35, psdLen), line2GreenMat);
+        psdHeader.position.set(edgeX + side * 0.08, 2.15, 0);
+        st.add(psdHeader);
+
+        // 승강장 외측 난간벽 (방음벽/외벽)
+        const outerX = px + side * (platW / 2 - 0.1);
+        const outerWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.4, len), concMat);
+        outerWall.position.set(outerX, 1.2, 0);
+        outerWall.castShadow = true;
+        st.add(outerWall);
+
+        // 승강장 기둥 & 지붕 트러스
+        for (let z = -len / 2 + 8; z <= len / 2 - 8; z += 16) {
+          const col = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 5.2, 8), darkSteelMat);
+          col.position.set(px, 2.6, z);
+          st.add(col);
+
+          // 역명판 부착
+          const sign = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 3.2), signMat);
+          sign.position.set(px - side * 0.8, 3.2, z);
+          st.add(sign);
+
+          // 승강장 LED 조명등
+          const lampLight = new THREE.PointLight(0xfffaed, 0.45, 14);
+          lampLight.position.set(px, 4.4, z);
+          st.add(lampLight);
+
+          // 승강장 벤치
+          const bench = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.45, 2.4), darkSteelMat);
+          bench.position.set(px, 0.25, z + 5.0);
+          st.add(bench);
+        }
+      });
+
+      // 3. 역사 아치형 캐노피 지붕 (시원하고 사실적인 트러스 구조)
+      const roofArch = new THREE.Group();
+      const roofW = platOffset * 2 + platW + 2.0;
+      for (let z = -len / 2; z <= len / 2; z += 8) {
+        // 아치 트러스 빔
+        const archBeam = new THREE.Mesh(new THREE.BoxGeometry(roofW, 0.35, 0.35), darkSteelMat);
+        archBeam.position.set(0, 5.8, z);
+        roofArch.add(archBeam);
+      }
+      // 좌우 및 상부 지붕 패널
+      const roofPanelL = new THREE.Mesh(new THREE.PlaneGeometry(roofW * 0.42, len), darkSteelMat);
+      roofPanelL.rotation.x = Math.PI / 2;
+      roofPanelL.rotation.y = 0.12;
+      roofPanelL.position.set(-roofW * 0.26, 6.1, 0);
+      roofArch.add(roofPanelL);
+
+      const roofPanelR = new THREE.Mesh(new THREE.PlaneGeometry(roofW * 0.42, len), darkSteelMat);
+      roofPanelR.rotation.x = Math.PI / 2;
+      roofPanelR.rotation.y = -0.12;
+      roofPanelR.position.set(roofW * 0.26, 6.1, 0);
+      roofArch.add(roofPanelR);
+
+      // 중앙 반투명 채광창 (스카이라이트: 열차에서 하늘이 보임)
+      const skylight = new THREE.Mesh(new THREE.PlaneGeometry(roofW * 0.24, len), roofGlassMat);
+      skylight.rotation.x = Math.PI / 2;
+      skylight.position.set(0, 6.3, 0);
+      roofArch.add(skylight);
+      st.add(roofArch);
+
+      // 4. 하부 역사 대합실(Concourse) 박스 (Y = -7.5)
+      const concourse = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2 + platW - 1, 5.0, 48), concMat);
+      concourse.position.set(0, -posY * 0.48, 0);
+      concourse.castShadow = true;
+      st.add(concourse);
+
+      // 대합실 유리창 및 2호선 녹색 띠
+      const concGlass = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2 + platW + 0.1, 1.8, 44), psdGlassMat);
+      concGlass.position.set(0, -posY * 0.48 + 0.4, 0);
+      st.add(concGlass);
+
+      const concBand = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2 + platW + 0.2, 0.45, 48.2), line2GreenMat);
+      concBand.position.set(0, -posY * 0.48 + 1.8, 0);
+      st.add(concBand);
+
+      // 5. 지상 1번/2번 출구 연결 계단실 박스 (지상 Y = -16 에서 대합실까지)
+      [-1, 1].forEach(side => {
+        const exitBox = new THREE.Mesh(new THREE.BoxGeometry(5.2, posY * 0.52, 12.0), concMat);
+        exitBox.position.set(side * (platOffset + 4.5), -posY * 0.74, 8);
+        exitBox.castShadow = true;
+        st.add(exitBox);
+
+        // 출구 캐노피
+        const exitRoof = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.4, 13.0), darkSteelMat);
+        exitRoof.position.set(side * (platOffset + 4.5), -posY + 3.8, 8);
+        st.add(exitRoof);
+      });
+
+      return st;
+    }
+
+    // 잠실나루역 & 강변역 고가역사 배치
+    // 잠실나루역: (360, 16, 850), 각도 0.4007 rad (잠실철교 축과 정렬)
+    const jamsillaruStation = buildLine2ElevatedStation("잠실나루", "214", 360, 16.0, 850, 0.4007, "잠실", "강변");
+    stationGroup.add(jamsillaruStation);
+
+    // 강변역: (-360, 16, -850), 각도 0.4007 rad
+    const gangbyeonStation = buildLine2ElevatedStation("강변", "215", -360, 16.0, -850, 0.4007, "구의", "잠실나루");
+    stationGroup.add(gangbyeonStation);
+
+    // ============================================================
+    // 도심 밀도 (Urban Density): 역사 주변 횡단보도, 버스정류장, 따릉이, 보행자
+    // ============================================================
+    const urbanDetailGroup = new THREE.Group();
+    const whiteLineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const asphaltRoadMat = new THREE.MeshStandardMaterial({ color: 0x22262a, roughness: 0.9 });
+    const pedColors = [0x2a5298, 0xd32f2f, 0xf57c00, 0x388e3c, 0x7b1fa2, 0x37474f, 0xf5f5f5, 0x1976d2];
+
+    // 역사 주변 도심 요소 생성기
+    function addStationSurroundings(centerX, groundY, centerZ, rotY) {
+      const g = new THREE.Group();
+      g.position.set(centerX, groundY, centerZ);
+      g.rotation.y = rotY;
+
+      // 1. 역사 하부 보행자 광장/도로 아스팔트
+      const plaza = new THREE.Mesh(new THREE.PlaneGeometry(36, 110), asphaltRoadMat);
+      plaza.rotation.x = -Math.PI / 2;
+      plaza.position.y = 0.02;
+      g.add(plaza);
+
+      // 2. 횡단보도 (지브라 스트라이프 8개)
+      for (let s = -14; s <= 14; s += 3.8) {
+        const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 12), whiteLineMat);
+        stripe.rotation.x = -Math.PI / 2;
+        stripe.position.set(s, 0.05, 28);
+        g.add(stripe);
+      }
+
+      // 3. 서울 버스 정류장 쉘터
+      const shelter = new THREE.Group();
+      shelter.position.set(15, 0, 12);
+      const shelterRoof = new THREE.Mesh(
+        new THREE.BoxGeometry(3.2, 0.25, 9.0),
+        new THREE.MeshStandardMaterial({ color: 0x1a2228, metalness: 0.8, roughness: 0.3 })
+      );
+      shelterRoof.position.y = 2.6;
+      shelter.add(shelterRoof);
+
+      const shelterGlass = new THREE.Mesh(
+        new THREE.PlaneGeometry(8.6, 2.2),
+        new THREE.MeshStandardMaterial({ color: 0xaad0e8, transparent: true, opacity: 0.6, roughness: 0.1 })
+      );
+      shelterGlass.position.set(1.4, 1.3, 0);
+      shelter.add(shelterGlass);
+
+      const shelterBench = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 0.45, 5.0),
+        new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.7 })
+      );
+      shelterBench.position.set(0.6, 0.25, 0);
+      shelter.add(shelterBench);
+      g.add(shelter);
+
+      // 4. 서울시 공공자전거 '따릉이' 대여소
+      const ttareungyi = new THREE.Group();
+      ttareungyi.position.set(-15, 0, 15);
+      const bikeStand = new THREE.Mesh(
+        new THREE.BoxGeometry(1.4, 0.4, 14.0),
+        new THREE.MeshStandardMaterial({ color: 0x3cb44a, roughness: 0.5 })
+      );
+      bikeStand.position.y = 0.2;
+      ttareungyi.add(bikeStand);
+
+      // 자전거 실루엣들
+      const bikeWheelMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+      const bikeFrameMat = new THREE.MeshStandardMaterial({ color: 0x3cb44a, metalness: 0.5, roughness: 0.4 });
+      for (let b = -5.5; b <= 5.5; b += 1.6) {
+        const bike = new THREE.Group();
+        bike.position.set(0, 0.35, b);
+        [-0.45, 0.45].forEach(wz => {
+          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 10), bikeWheelMat);
+          wheel.rotation.x = Math.PI / 2;
+          wheel.position.set(0, 0, wz);
+          bike.add(wheel);
+        });
+        const frame = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.9, 6), bikeFrameMat);
+        frame.rotation.x = 0.5;
+        frame.position.set(0, 0.25, 0);
+        bike.add(frame);
+        ttareungyi.add(bike);
+      }
+      g.add(ttareungyi);
+
+      // 5. 보행자 피규어 (다채로운 옷차림의 시민 28명)
+      for (let p = 0; p < 28; p++) {
+        const ped = new THREE.Group();
+        const col = pedColors[p % pedColors.length];
+        const bodyMat = new THREE.MeshStandardMaterial({ color: col, roughness: 0.7 });
+        const headMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+
+        // 몸통
+        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.9, 8), bodyMat);
+        torso.position.y = 0.95;
+        torso.castShadow = true;
+        ped.add(torso);
+
+        // 머리
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8), headMat);
+        head.position.y = 1.55;
+        ped.add(head);
+
+        // 다리
+        [-0.08, 0.08].forEach(lx => {
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.55, 6), bodyMat);
+          leg.position.set(lx, 0.28, 0);
+          ped.add(leg);
+        });
+
+        // 위치 배치 (인도 및 횡단보도 주변)
+        const px = (Math.random() - 0.5) * 26;
+        const pz = (Math.random() - 0.5) * 80;
+        ped.position.set(px, 0.0, pz);
+        ped.rotation.y = Math.random() * Math.PI * 2;
+        g.add(ped);
+      }
+
+      return g;
+    }
+
+    // 잠실나루역 주변 지상 도심 배치 (지면 Y=4.5)
+    urbanDetailGroup.add(addStationSurroundings(360, 4.5, 850, 0.4007));
+    // 강변역 주변 지상 도심 배치 (지면 Y=4.5)
+    urbanDetailGroup.add(addStationSurroundings(-360, 4.5, -850, 0.4007));
+
+    scene.add(stationGroup);
+    scene.add(urbanDetailGroup);
 
     // ------------------------------------------------------------
     // 8. 언리얼급 한국 고층 아파트 대단지 (잠실 엘스/리센츠/장미 스타일)
@@ -3627,11 +4264,60 @@
         fogF = Math.min(fogF, 3800);
       }
 
-      scene.background.copy(skyCol);
+      // 스카이돔을 위해 scene.background는 null (스카이돔 메시가 배경 담당)
+      scene.background = null;
       renderer.setClearColor(skyCol, 1.0);
       scene.fog.color.copy(skyCol);
       scene.fog.near = fogN;
       scene.fog.far = fogF;
+
+      // 스카이돔 셰이더 유니폼 갱신
+      if (window._skyDomeMat) {
+        const u = window._skyDomeMat.uniforms;
+        const skyUniformPresets = {
+          morning: { top: 0x2262a0, sunGlow: 180, moon: 0.0, cloudBase: 0.06 },
+          noon:    { top: 0x144a86, sunGlow: 260, moon: 0.0, cloudBase: 0.04 },
+          sunset:  { top: 0x7c1e0e, sunGlow: 110, moon: 0.0, cloudBase: 0.20 },
+          night:   { top: 0x01040e, sunGlow: 400, moon: 1.0, cloudBase: 0.10 }
+        };
+        const p = skyUniformPresets[currentTimePreset] || skyUniformPresets.morning;
+        u.uTopColor.value.set(p.top);
+        u.uHorizonColor.value.set(skyCol);
+        u.uSunDir.value.copy(tc.sunPos).normalize();
+        u.uSunColor.value.set(tc.sunColor);
+        u.uSunGlow.value = p.sunGlow;
+        u.uMoonPhase.value = p.moon;
+
+        let cloudCover = p.cloudBase;
+        if (currentWeatherPreset === "cloudy") cloudCover = 0.62;
+        else if (currentWeatherPreset === "rain") cloudCover = 0.88;
+        else if (currentWeatherPreset === "fog") cloudCover = 0.72;
+        else if (currentWeatherPreset === "snow") cloudCover = 0.64;
+        u.uCloudCover.value = cloudCover;
+      }
+
+      // 3D 구름 메시 가시성 및 색조 갱신
+      if (window._cloudMeshes) {
+        let targetOpacity = 0.0;
+        if (currentWeatherPreset === "clear") targetOpacity = 0.32;
+        else if (currentWeatherPreset === "cloudy") targetOpacity = 0.82;
+        else if (currentWeatherPreset === "rain") targetOpacity = 0.94;
+        else if (currentWeatherPreset === "snow") targetOpacity = 0.78;
+        else if (currentWeatherPreset === "fog") targetOpacity = 0.45;
+
+        window._cloudMeshes.forEach(cm => {
+          cm.mat.opacity = targetOpacity * (0.5 + cm.density * 0.5);
+          if (currentTimePreset === "sunset") {
+            cm.mat.color.set(0xff9876);
+          } else if (currentTimePreset === "night") {
+            cm.mat.color.set(0x1a2232);
+          } else if (currentWeatherPreset === "rain") {
+            cm.mat.color.set(0x56606a);
+          } else {
+            cm.mat.color.set(0xf2f6fa);
+          }
+        });
+      }
 
       sunLight.position.copy(tc.sunPos);
       sunLight.color.set(tc.sunColor);
@@ -3650,6 +4336,7 @@
       rainSystem.visible = (currentWeatherPreset === "rain");
       snowSystem.visible = (currentWeatherPreset === "snow");
       audio.setRain(currentWeatherPreset === "rain");
+      audio.setWeather(currentWeatherPreset);
 
       document.querySelector("#clock-display").textContent = tc.clock;
       document.querySelector("#time-icon").textContent = tc.icon;
@@ -4229,6 +4916,46 @@
           mb.mesh.rotation.z = Math.sin(time * 1.2 + i) * 0.04;
         }
       }
+
+      // 하늘 스카이돔 및 3D 구름 드리프트
+      if (window._skyDomeMat) {
+        window._skyDomeMat.uniforms.uTime.value = time;
+      }
+      if (cloudGroup) {
+        const windDriftSpeed = (currentWeatherPreset === "rain" ? 18.0 : 8.0);
+        cloudGroup.children.forEach(g => {
+          g.position.x += (g.userData.driftX || 0.4) * windDriftSpeed * dt;
+          if (g.position.x > 1800) g.position.x = -1800;
+          if (g.position.x < -1800) g.position.x = 1800;
+        });
+      }
+
+      // 비 날씨 번개 플래시 효과
+      if (window._lightning) {
+        const ln = window._lightning;
+        if (currentWeatherPreset === "rain") {
+          ln.timer -= dt;
+          if (ln.timer <= 0) {
+            ln.active = true;
+            ln.light.intensity = 5.0;
+            ln.light.position.set((Math.random() - 0.5) * 1200, 600, (Math.random() - 0.5) * 1200);
+            ln.timer = 6.0 + Math.random() * 8.0;
+          }
+          if (ln.active) {
+            ln.light.intensity *= Math.pow(0.04, dt);
+            if (ln.light.intensity < 0.05) {
+              ln.light.intensity = 0;
+              ln.active = false;
+            }
+          }
+        } else {
+          ln.light.intensity = 0;
+          ln.active = false;
+        }
+      }
+
+      // 절차적 바람 소리 실시간 갱신
+      audio.updateWind(dt, time);
 
       composer.render();
     }

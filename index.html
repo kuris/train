@@ -3319,6 +3319,111 @@
       interior.add(create7SeatBench(-1, -4.5, false));
       interior.add(create7SeatBench(-1, 4.5, false));
 
+      // ------------------------------------------------------------
+      // 3인칭 지하철 탑승객 캐릭터 모델링 (좌석 착석 및 손잡이 입석)
+      // ------------------------------------------------------------
+      const passColors = [0x1e3a8a, 0x334155, 0x78350f, 0x065f46, 0x4c1d95, 0x831843, 0x374151];
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+      const hairMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 });
+      const phoneMat = new THREE.MeshBasicMaterial({ color: 0x93c5fd });
+
+      function createPassenger(type, x, z, rotY, colorIdx) {
+        const pGroup = new THREE.Group();
+        pGroup.position.set(x, 0, z);
+        pGroup.rotation.y = rotY;
+
+        const clothesMat = new THREE.MeshStandardMaterial({
+          color: passColors[colorIdx % passColors.length],
+          roughness: 0.65
+        });
+        const pantsMat = new THREE.MeshStandardMaterial({
+          color: (colorIdx % 2 === 0) ? 0x1f2937 : 0x475569,
+          roughness: 0.7
+        });
+
+        if (type === "sitting") {
+          // 1. 좌석 착석 승객
+          // 골반/허벅지
+          const thighs = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.38), pantsMat);
+          thighs.position.set(0, 0.44, 0.16);
+          pGroup.add(thighs);
+
+          // 종아리
+          [-0.10, 0.10].forEach(lx => {
+            const calf = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.42, 6), pantsMat);
+            calf.position.set(lx, 0.21, 0.32);
+            pGroup.add(calf);
+          });
+
+          // 상체
+          const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.52, 8), clothesMat);
+          torso.position.set(0, 0.74, 0.0);
+          torso.rotation.x = -0.06;
+          pGroup.add(torso);
+
+          // 머리 & 헤어
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), skinMat);
+          head.position.set(0, 1.10, 0.02);
+          head.rotation.x = 0.15; // 고개 약간 숙임 (스마트폰 시선)
+          pGroup.add(head);
+
+          const hair = new THREE.Mesh(new THREE.SphereGeometry(0.126, 8, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+          hair.position.set(0, 1.11, 0.02);
+          hair.rotation.x = 0.15;
+          pGroup.add(hair);
+
+          // 스마트폰 (손에 쥠)
+          const phone = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.01), phoneMat);
+          phone.position.set(0, 0.58, 0.28);
+          phone.rotation.x = -0.35;
+          pGroup.add(phone);
+        } else {
+          // 2. 서서 손잡이 잡은 승객
+          // 다리
+          [-0.10, 0.10].forEach(lx => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.85, 6), pantsMat);
+            leg.position.set(lx, 0.42, 0);
+            pGroup.add(leg);
+          });
+
+          // 상체
+          const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.17, 0.65, 8), clothesMat);
+          torso.position.set(0, 1.15, 0);
+          pGroup.add(torso);
+
+          // 한쪽 팔 위로 올려 손잡이 잡음
+          const armUp = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.55, 6), clothesMat);
+          armUp.position.set(0.18, 1.55, 0);
+          armUp.rotation.z = -0.35;
+          pGroup.add(armUp);
+
+          // 머리
+          const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), skinMat);
+          head.position.set(0, 1.62, 0);
+          pGroup.add(head);
+
+          const hair = new THREE.Mesh(new THREE.SphereGeometry(0.135, 8, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+          hair.position.set(0, 1.63, 0);
+          pGroup.add(hair);
+        }
+
+        return pGroup;
+      }
+
+      // 각 객차별 승객 배치 (반대편 좌석 및 서 있는 승객)
+      // 우측 좌석 승객들 (X=1.16, Z=-5.2 ~ 5.2, 창밖을 등지고 실내를 봄: rotY = -Math.PI/2)
+      interior.add(createPassenger("sitting", 1.16, -5.2, -Math.PI / 2, 0));
+      interior.add(createPassenger("sitting", 1.16, -4.2, -Math.PI / 2, 1));
+      interior.add(createPassenger("sitting", 1.16, 3.8, -Math.PI / 2, 2));
+
+      // 좌측 좌석 승객들 (X=-1.16, Z=-3.8 ~ 5.0, rotY = Math.PI/2)
+      interior.add(createPassenger("sitting", -1.16, -3.8, Math.PI / 2, 3));
+      interior.add(createPassenger("sitting", -1.16, 4.8, Math.PI / 2, 4));
+
+      // 통로 입석 승객들 (X=0.45, Z=-2.0 / 2.5)
+      interior.add(createPassenger("standing", 0.45, -2.2, Math.PI * 0.25, 5));
+      interior.add(createPassenger("standing", -0.45, 2.0, -Math.PI * 0.65, 6));
+
       // 천장 중앙 듀얼 LCD 종합안내 디스플레이 모니터 (천장 브래킷 고정)
       const lcdCanvas = document.createElement("canvas");
       lcdCanvas.width = 512;
@@ -3381,11 +3486,49 @@
         }
       });
 
-      // 단부 연결벽 및 통로문 & 비상인터폰
+      // 단부 개방형 통로문 (객차 간 시야 개방 & 자유 이동 지원)
       [-11.5, 11.5].forEach(wz => {
-        const wall = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.4, 0.15), matCeiling);
-        wall.position.set(0, 1.2, wz);
-        interior.add(wall);
+        // 좌측 벽
+        const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.95, 2.4, 0.15), matCeiling);
+        wallL.position.set(-1.025, 1.2, wz);
+        interior.add(wallL);
+
+        // 우측 벽
+        const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.95, 2.4, 0.15), matCeiling);
+        wallR.position.set(1.025, 1.2, wz);
+        interior.add(wallR);
+
+        // 상단 트랜섬 헤더
+        const header = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.38, 0.15), matCeiling);
+        header.position.set(0, 2.21, wz);
+        interior.add(header);
+
+        // 통로문 알루미늄 프레임
+        const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.3 });
+        const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.04, 0.16), doorFrameMat);
+        frameL.position.set(-0.55, 1.02, wz);
+        interior.add(frameL);
+        const frameR = frameL.clone();
+        frameR.position.set(0.55, 1.02, wz);
+        interior.add(frameR);
+
+        // 투명 강화유리 자동문 (앞/뒤 객차가 훤히 보임)
+        const gangwayGlassMat = new THREE.MeshStandardMaterial({
+          color: 0x94d2bd,
+          transparent: true,
+          opacity: 0.35,
+          roughness: 0.1,
+          metalness: 0.2
+        });
+        const glassDoor = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 1.98), gangwayGlassMat);
+        glassDoor.position.set(0, 1.02, wz + (wz > 0 ? -0.02 : 0.02));
+        interior.add(glassDoor);
+
+        // 객차 간 연결 발판 (Gangway Tread Plate)
+        const treadMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.5 });
+        const treadPlate = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.04, 1.5), treadMat);
+        treadPlate.position.set(0, 0.01, wz + (wz > 0 ? 0.75 : -0.75));
+        interior.add(treadPlate);
 
         // 비상 통화 장치 (SOS Red Box)
         const sosBox = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 0.06), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
@@ -3406,7 +3549,7 @@
         sctx.fillText("2호선 외선순환  Next: 잠실나루", 256, 32);
         const signTex = new THREE.CanvasTexture(signCanvas);
         const signMat = new THREE.MeshBasicMaterial({ map: signTex });
-        const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.22), signMat);
+        const signMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.22), signMat);
         signMesh.position.set(0, 2.05, wz + (wz > 0 ? -0.09 : 0.09));
         if (wz > 0) signMesh.rotation.y = Math.PI;
         interior.add(signMesh);
@@ -3780,10 +3923,20 @@
     let orbitPitch = -0.02;
     let cameraDistance = 24.0;
 
+    let currentCarIndex = 2; // 기본 3호차 (0: 1호차 후미 ~ 9: 10호차 선두)
     let isSeated = true;
     let passengerLocalPos = new THREE.Vector3(-0.65, 1.25, 0.0);
     let targetEyeY = 1.25;
     let curEyeY = 1.25;
+
+    function updateCarGuidance() {
+      const gEl = document.querySelector("#guidance-car");
+      if (gEl) {
+        const carNum = currentCarIndex + 1;
+        const isCab = (currentCarIndex === NUM_CARS - 1) ? " (선두차)" : (currentCarIndex === 0 ? " (후미차)" : "");
+        gEl.textContent = `${carNum}호차${isCab}`;
+      }
+    }
 
     const allCamBtns = document.querySelectorAll(".footer-cam-btn[data-cam]");
 
@@ -3800,9 +3953,10 @@
         cardAlignHud.style.display = "flex";
         routeModeSub.textContent = "HAN RIVER LINE / 승객 · 자동 운전";
         missionHeadline.textContent = "자동 운전으로 이동 중";
-        topGuidance.innerHTML = `<span id="guidance-car">3호차</span> · WASD 이동 · 우클릭 둘러보기 · V 시점 전환 · E 앉기`;
+        topGuidance.innerHTML = `<span id="guidance-car">${currentCarIndex + 1}호차</span> · WASD/조이스틱 이동 (객차간 자유 이동) · 마우스/터치 둘러보기 · E 앉기`;
         orbitPitch = -0.06;
         orbitYaw = 0.0;
+        updateCarGuidance();
       } else if (mode === 1) {
         bottomDash.style.display = "flex";
         passengerFooter.style.display = "none";
@@ -3859,15 +4013,16 @@
       camera.up.set(0, 1, 0);
 
       if (viewMode === 2) {
-        const car3 = cars[2];
-        const distFromLead = (NUM_CARS - 1 - 2) * CAR_SPACING;
-        let car3T = (progress - (distFromLead / routeLength)) % 1.0;
-        if (car3T < 0) car3T += 1.0;
-        const cf = routeFrameAt(car3T);
+        // 현재 머무는 객차(currentCarIndex)의 실시간 위치 및 회전 추적
+        const curCar = cars[currentCarIndex] || cars[2];
+        const distFromLead = (NUM_CARS - 1 - currentCarIndex) * CAR_SPACING;
+        let carT = (progress - (distFromLead / routeLength)) % 1.0;
+        if (carT < 0) carT += 1.0;
+        const cf = routeFrameAt(carT);
 
         curEyeY += (targetEyeY - curEyeY) * Math.min(1.0, 8.0 * dt);
 
-        const eyePos = car3.position.clone()
+        const eyePos = curCar.position.clone()
           .addScaledVector(cf.right, passengerLocalPos.x)
           .addScaledVector(cf.tangent, passengerLocalPos.z)
           .add(new THREE.Vector3(0, curEyeY - 0.72, 0));
@@ -3963,7 +4118,7 @@
         }
 
         if (!isSeated) {
-          const moveSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 3.6 : 1.9;
+          const moveSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 4.2 : 2.5;
           // 카메라가 바라보는 시선 방향(lookDir)의 수평 전방 벡터 (Fwd)
           const fwdX = Math.cos(orbitYaw);
           const fwdZ = Math.sin(orbitYaw);
@@ -3992,8 +4147,32 @@
             passengerLocalPos.z -= rgtZ * moveSpeed * dt;
           }
 
-          passengerLocalPos.x = THREE.MathUtils.clamp(passengerLocalPos.x, -1.15, 1.15);
-          passengerLocalPos.z = THREE.MathUtils.clamp(passengerLocalPos.z, -11.0, 11.0);
+          // === [핵심 기능] 10개 객차간 자유 이동 (Car-to-Car Gangway Walking) ===
+          // Z 전방(앞 객차 방향)으로 통로문 통과
+          if (passengerLocalPos.z > 12.4) {
+            if (currentCarIndex < NUM_CARS - 1) {
+              currentCarIndex++;
+              passengerLocalPos.z -= CAR_SPACING; // 앞 객차의 뒷부분으로 자연스럽게 진입!
+              updateCarGuidance();
+            } else {
+              // 10호차 선두차 운전실 창문 앞 한계
+              passengerLocalPos.z = 11.6;
+            }
+          }
+          // Z 후방(뒤 객차 방향)으로 통로문 통과
+          if (passengerLocalPos.z < -12.4) {
+            if (currentCarIndex > 0) {
+              currentCarIndex--;
+              passengerLocalPos.z += CAR_SPACING; // 뒤 객차의 앞부분으로 자연스럽게 진입!
+              updateCarGuidance();
+            } else {
+              // 1호차 후미 끝 벽 한계
+              passengerLocalPos.z = -11.2;
+            }
+          }
+
+          // 통로 내부 좌우 폭 클램프 (복도와 좌석 사이 통행 가능 영역)
+          passengerLocalPos.x = THREE.MathUtils.clamp(passengerLocalPos.x, -1.2, 1.2);
         }
       } else if (viewMode === 1) {
         // 운전실 시점 마우스 & 시선 제어

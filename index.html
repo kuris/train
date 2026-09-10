@@ -5774,8 +5774,10 @@
       // 가로등 야간 자동 점등 (저녁/밤 시간대)
       const isNight = (currentTimePreset === "night" || currentTimePreset === "sunset");
       if (window._lampGroup) {
+        // 하드코딩된 0xffecc4는 실제 전구 머티리얼(0xfff8e0)과 달라 한 번도 매칭되지
+        // 않았음 -> 머티리얼 객체를 직접 비교
         window._lampGroup.traverse(obj => {
-          if (obj.isMesh && obj.material && obj.material.color && obj.material.color.getHex() === 0xffecc4) {
+          if (obj.isMesh && obj.material === lampGlowMat) {
             obj.visible = isNight;
           }
         });

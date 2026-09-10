@@ -6544,8 +6544,8 @@
 
       if (keys.KeyW) { platformPos.x += fwdX * moveSpeed * dt; platformPos.z += fwdZ * moveSpeed * dt; }
       if (keys.KeyS) { platformPos.x -= fwdX * moveSpeed * dt; platformPos.z -= fwdZ * moveSpeed * dt; }
-      if (keys.KeyD) { platformPos.x += rgtX * moveSpeed * dt; platformPos.z += rgtZ * moveSpeed * dt; }
-      if (keys.KeyA) { platformPos.x -= rgtX * moveSpeed * dt; platformPos.z -= rgtZ * moveSpeed * dt; }
+      if (keys.KeyA) { platformPos.x += rgtX * moveSpeed * dt; platformPos.z += rgtZ * moveSpeed * dt; }
+      if (keys.KeyD) { platformPos.x -= rgtX * moveSpeed * dt; platformPos.z -= rgtZ * moveSpeed * dt; }
 
       // 승강장 높이 고정 (Y = 승강장 슬라브 상면)
       platformPos.y = 17.7;
@@ -7506,7 +7506,7 @@
           // 역 승강장 모드: 열차를 잠실나루역에 정차시키고 플레이어를 승강장에 배치
           progress = PLATFORM_PROGRESS_JAMSIL;
           trainSpeed = 0;
-          started = false; // 열차 정지 상태
+          started = true; // 열차를 선로 위에 배치 (속도 0이므로 정차 유지)
           platformPos.copy(STATION_PLATFORM_POS);
           platformPos.x += 7.0;  // 승강장 중심 (선로 옆)
           platformPos.z -= 10.0; // 열차 중간 위치 앞

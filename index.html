@@ -703,7 +703,14 @@
 
     /* 시작 인트로 모달 */
     #intro {
-      display: none;
+      display: flex;
+      position: fixed;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(4px);
     }
 
     #intro-card {

@@ -707,17 +707,126 @@
     }
 
     #intro-card {
-      width: min(520px, 90vw);
-      background: rgba(15, 22, 33, 0.96);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      width: min(560px, 92vw);
+      background: rgba(10, 16, 28, 0.97);
+      border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 24px;
-      padding: 34px 30px;
+      padding: 32px 28px 28px;
       text-align: center;
-      box-shadow: 0 28px 70px rgba(0,0,0,0.85);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.9), 0 0 0 1px rgba(56,189,248,0.08);
     }
 
+    /* 시작 지점 선택 카드 그리드 */
+    .start-location-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin: 20px 0 8px;
+    }
+
+    .start-loc-card {
+      background: rgba(255,255,255,0.04);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 18px 10px 14px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .start-loc-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 13px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .start-loc-card.loc-platform::before {
+      background: linear-gradient(135deg, rgba(56,189,248,0.15), rgba(14,165,233,0.08));
+    }
+    .start-loc-card.loc-train::before {
+      background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(22,163,74,0.08));
+    }
+    .start-loc-card.loc-driver::before {
+      background: linear-gradient(135deg, rgba(251,191,36,0.15), rgba(245,158,11,0.08));
+    }
+
+    .start-loc-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    }
+
+    .start-loc-card.loc-platform:hover {
+      border-color: rgba(56,189,248,0.6);
+    }
+    .start-loc-card.loc-train:hover {
+      border-color: rgba(34,197,94,0.6);
+    }
+    .start-loc-card.loc-driver:hover {
+      border-color: rgba(251,191,36,0.6);
+    }
+
+    .start-loc-card.active {
+      transform: translateY(-3px);
+    }
+
+    .start-loc-card.loc-platform.active {
+      border-color: #38bdf8;
+      box-shadow: 0 0 24px rgba(56,189,248,0.35), 0 12px 32px rgba(0,0,0,0.5);
+    }
+    .start-loc-card.loc-train.active {
+      border-color: #22c55e;
+      box-shadow: 0 0 24px rgba(34,197,94,0.35), 0 12px 32px rgba(0,0,0,0.5);
+    }
+    .start-loc-card.loc-driver.active {
+      border-color: #fbbf24;
+      box-shadow: 0 0 24px rgba(251,191,36,0.35), 0 12px 32px rgba(0,0,0,0.5);
+    }
+
+    .start-loc-card.active::before { opacity: 1; }
+
+    .start-loc-icon {
+      font-size: 32px;
+      line-height: 1;
+      position: relative;
+    }
+
+    .start-loc-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #f1f5f9;
+      position: relative;
+    }
+
+    .start-loc-desc {
+      font-size: 10.5px;
+      color: #64748b;
+      line-height: 1.4;
+      position: relative;
+    }
+
+    .start-loc-badge {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      position: relative;
+    }
+
+    .loc-platform .start-loc-badge { background: rgba(56,189,248,0.2); color: #38bdf8; }
+    .loc-train .start-loc-badge { background: rgba(34,197,94,0.2); color: #22c55e; }
+    .loc-driver .start-loc-badge { background: rgba(251,191,36,0.2); color: #fbbf24; }
+
     #start {
-      margin-top: 16px;
+      margin-top: 14px;
       width: 100%;
       border: 0;
       border-radius: 14px;
@@ -735,6 +844,63 @@
       transform: translateY(-2px);
       box-shadow: 0 12px 30px rgba(34, 197, 94, 0.6);
     }
+
+    /* 플랫폼 탑승 힌트 (역 승강장 모드) */
+    #board-hint {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 40;
+      background: rgba(8, 14, 26, 0.92);
+      border: 1.5px solid rgba(56,189,248,0.6);
+      backdrop-filter: blur(16px);
+      border-radius: 14px;
+      padding: 18px 32px;
+      text-align: center;
+      box-shadow: 0 0 32px rgba(56,189,248,0.25), 0 16px 40px rgba(0,0,0,0.6);
+      display: none;
+      pointer-events: none;
+      animation: boardHintPulse 1.8s ease infinite;
+    }
+    @keyframes boardHintPulse {
+      0%, 100% { box-shadow: 0 0 32px rgba(56,189,248,0.25), 0 16px 40px rgba(0,0,0,0.6); }
+      50% { box-shadow: 0 0 48px rgba(56,189,248,0.5), 0 16px 40px rgba(0,0,0,0.6); }
+    }
+    #board-hint-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: #38bdf8;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+    #board-hint-sub {
+      font-size: 12px;
+      color: #94a3b8;
+      font-weight: 600;
+    }
+
+    /* 역 승강장 모드 안내 오버레이 */
+    #platform-ui {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      background: rgba(8, 14, 26, 0.88);
+      border: 1px solid rgba(56,189,248,0.3);
+      backdrop-filter: blur(16px);
+      border-radius: 10px;
+      padding: 9px 24px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #cbd5e1;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+      white-space: nowrap;
+      display: none;
+      text-align: center;
+    }
+    #platform-ui span { color: #38bdf8; }
 
     /* ============================================================
        모바일 지원: 가상 조이스틱 & 액션 버튼
@@ -2029,16 +2195,48 @@
     <div id="bgm-list"></div>
   </div>
 
+  <div id="board-hint">
+    <div id="board-hint-title">🚇 열차가 정차했습니다</div>
+    <div id="board-hint-sub">F 키 또는 아래 버튼으로 탑승</div>
+  </div>
+
+  <div id="platform-ui">🚉 <span id="platform-station-name">잠실나루역</span> 승강장 · WASD 이동 · 마우스 둘러보기 · 열차에 가까이 가면 탑승</div>
+
   <div id="intro">
-    <div id="intro-card">
-      <div style="font-size:12px; font-weight:800; color:var(--ui-green); letter-spacing:1px; margin-bottom:8px;">HAN RIVER LINE · 한강선</div>
-      <h1 style="margin:0 0 12px; font-size:24px; font-weight:900;">한강선 감상형 시뮬레이터</h1>
-      <p style="font-size:13.5px; line-height:1.6; color:#94a3b8; margin:0 0 18px;">
-        지하철 안에서 책을 읽다가 문득 고개를 들어 창밖의 한강을 바라보는 기분을 담았습니다.<br />
-        <strong>H 키로 감상 모드</strong>를 켜고 멍하니 풍경을 바라보거나, <strong>L 키로 한강선 운행 로그북</strong>을 열어보세요.<br />
-        <span style="font-size:12px; color:#cbd5e1;">(V 키 시점 전환 · 직접 운전 또는 승객 모드 자유 이동)</span>
+    <div id="intro-card" onclick="event.stopPropagation()">
+      <div style="font-size:11px; font-weight:800; color:#38bdf8; letter-spacing:1.2px; margin-bottom:6px;">HAN RIVER LINE · 한강선</div>
+      <h1 style="margin:0 0 8px; font-size:22px; font-weight:900;">한강선 감상형 시뮬레이터</h1>
+      <p style="font-size:12.5px; line-height:1.55; color:#64748b; margin:0 0 4px;">
+        지하철 안에서 창밖의 한강을 바라보는 기분을 담았습니다
       </p>
-      <button id="start">🚇 한강선 열차 탑승하기</button>
+
+      <div style="font-size:11.5px; font-weight:800; color:#94a3b8; letter-spacing:0.8px; margin: 16px 0 10px; text-align:left;">🗺️ 시작 지점 선택</div>
+      <div class="start-location-grid">
+        <div class="start-loc-card loc-platform" id="loc-platform" onclick="selectStartLoc('platform', event)">
+          <div class="start-loc-icon">🚉</div>
+          <div class="start-loc-title">역 승강장</div>
+          <div class="start-loc-desc">역 안을 걸어다니다가 열차에 탑승</div>
+          <div class="start-loc-badge">NEW</div>
+        </div>
+        <div class="start-loc-card loc-train active" id="loc-train" onclick="selectStartLoc('train', event)">
+          <div class="start-loc-icon">🚇</div>
+          <div class="start-loc-title">열차 안</div>
+          <div class="start-loc-desc">이미 달리는 열차 안 승객 시점</div>
+          <div class="start-loc-badge">기본값</div>
+        </div>
+        <div class="start-loc-card loc-driver" id="loc-driver" onclick="selectStartLoc('driver', event)">
+          <div class="start-loc-icon">🚞</div>
+          <div class="start-loc-title">운전실</div>
+          <div class="start-loc-desc">선두차 운전석에서 직접 운전</div>
+          <div class="start-loc-badge">DRIVE</div>
+        </div>
+      </div>
+
+      <button id="start">🚇 한강선 출발하기</button>
+
+      <p style="font-size:11px; line-height:1.5; color:#334155; margin: 14px 0 0;">
+        H 감상모드 · L 로그북 · V 시점 전환 · W 날씨패널
+      </p>
     </div>
   </div>
 
@@ -5998,6 +6196,20 @@
     // 10. 시점 시스템 & V 키 / WASD 이동 시스템 (사용자 요청 완벽 대응)
     // ------------------------------------------------------------
     let viewMode = 2; // 기본: 2 승객 1인칭
+    // viewMode 5: 역 승강장 걷기 모드 (플레이어가 역 위를 걸어다님)
+    let startMode = 'train'; // 'platform' | 'train' | 'driver'
+
+    // 역 승강장 모드: 플레이어 월드 좌표
+    const STATION_PLATFORM_POS = new THREE.Vector3(360, 17.7, 850); // 잠실나루역 승강장
+    const GANGBYEON_PLATFORM_POS = new THREE.Vector3(-360, 17.7, -850); // 강변역 승강장
+    let platformPos = new THREE.Vector3().copy(STATION_PLATFORM_POS);
+    let platformYaw = Math.PI; // 승강장에서 열차 바라보는 방향
+    let platformPitch = -0.05;
+    let platformBoardable = false; // 열차 탑승 가능 거리 안에 있는지
+    let platformDepartTimer = 0;   // 탑승 후 출발 카운트다운 (초)
+    let platformDeparting = false; // 출발 중
+    let platformBoarded = false;   // 탑승 완료
+
     // 시작 시점: 차창 밖 한강과 수면이 평화롭게 펼쳐지는 앵글
     let orbitYaw = 0.08;
     let orbitPitch = -0.04;
@@ -6058,11 +6270,29 @@
         winOverlay.style.display = (mode === 2) ? "flex" : "none";
       }
 
-      if (mode === 2) {
+      // 플랫폼 모드 UI
+      const platUI = document.getElementById("platform-ui");
+      const boardHint = document.getElementById("board-hint");
+      if (platUI) platUI.style.display = (mode === 5) ? "block" : "none";
+      if (boardHint && mode !== 5) boardHint.style.display = "none";
+
+      if (mode === 5) {
+        // 역 승강장 걷기 모드
+        bottomDash.style.display = "none";
+        passengerFooter.style.display = "none";
+        actionHint.style.display = "none";
+        cardAlignHud.style.display = "none";
+        topGuidance.style.display = "none";
+        routeModeSub.textContent = "HAN RIVER LINE / 역 승강장";
+        missionHeadline.textContent = "잠실나루역 승강장";
+        platformYaw = Math.PI;
+        platformPitch = -0.05;
+      } else if (mode === 2) {
         bottomDash.style.display = "none";
         passengerFooter.style.display = "flex";
         actionHint.style.display = "none";
         cardAlignHud.style.display = "flex";
+        topGuidance.style.display = "";
         routeModeSub.textContent = "HAN RIVER LINE / 승객 · 자동 운전";
         missionHeadline.textContent = "자동 운전으로 이동 중";
         topGuidance.innerHTML = `<span id="guidance-car">${currentCarIndex + 1}호차</span> · WASD/조이스틱 이동 (객차간 자유 이동) · 마우스/터치 둘러보기 · E 앉기`;
@@ -6074,6 +6304,7 @@
         passengerFooter.style.display = "none";
         actionHint.style.display = "block";
         cardAlignHud.style.display = "flex";
+        topGuidance.style.display = "";
         routeModeSub.textContent = "HAN RIVER LINE / 운전실 직접 제어";
         missionHeadline.textContent = "잠실나루까지 운행";
         topGuidance.textContent = "운전실 · WASD 이동 · V 시점 전환 · 마우스 둘러보기";
@@ -6084,6 +6315,7 @@
         passengerFooter.style.display = "none";
         actionHint.style.display = "block";
         cardAlignHud.style.display = "none";
+        topGuidance.style.display = "";
         routeModeSub.textContent = "HAN RIVER LINE / 외부 추적";
         missionHeadline.textContent = "잠실나루까지 운행";
         topGuidance.textContent = "외부 시점 · 직접 운전 중 · V 시점 전환";
@@ -6095,6 +6327,7 @@
         passengerFooter.style.display = "none";
         actionHint.style.display = "block";
         cardAlignHud.style.display = "none";
+        topGuidance.style.display = "";
         routeModeSub.textContent = "HAN RIVER LINE / 선로 옆 시점";
         missionHeadline.textContent = "잠실나루까지 운행";
         topGuidance.textContent = "선로 옆 시점 · V 시점 전환";
@@ -6104,7 +6337,7 @@
       }
 
       // 하단 대시보드 유무에 따라 터치 UI 스택 기준선 전환
-      document.body.classList.toggle("drive-hud", mode !== 2);
+      document.body.classList.toggle("drive-hud", mode !== 2 && mode !== 5);
       requestAnimationFrame(syncDashHeight);
 
       // 시점 변경 시에만 모바일 운전 UI 동기화 (매 프레임 DOM 쓰기 제거)
@@ -6114,6 +6347,8 @@
     }
 
     function cycleViewMode() {
+      // 플랫폼 모드(5)에서는 V키로 순환하지 않음 (탑승 후 자동 전환)
+      if (viewMode === 5) return;
       const next = viewMode === 2 ? 3 : viewMode === 3 ? 4 : viewMode === 4 ? 1 : 2;
       setViewMode(next);
     }
@@ -6132,6 +6367,22 @@
 
     function updateCamera(dt) {
       camera.up.set(0, 1, 0);
+
+      // viewMode 5: 역 승강장 걷기 모드
+      if (viewMode === 5) {
+        // 카메라를 플레이어 머리 위치에 배치
+        camera.position.copy(platformPos);
+        camera.position.y += 1.68;
+
+        // 바라보는 방향
+        const lookDir = new THREE.Vector3(
+          Math.sin(platformYaw) * Math.cos(platformPitch),
+          Math.sin(platformPitch),
+          Math.cos(platformYaw) * Math.cos(platformPitch)
+        );
+        camera.lookAt(camera.position.clone().add(lookDir));
+        return;
+      }
 
       if (viewMode === 2) {
         // 현재 머무는 객차(currentCarIndex)의 실시간 위치 및 회전 추적
@@ -6266,6 +6517,92 @@
     let progress = 0.38;   // 한강 한가운데서 출발
     let started = true;
     const keys = {};
+
+    // 플랫폼 모드: 역 정차 progress 값 (잠실나루역 ≈ 0.25)
+    // 잠실나루역은 routePoints[4] = (360, 16, 850) → t ≈ 0.25
+    const PLATFORM_PROGRESS_JAMSIL = 0.25;
+    const PLATFORM_PROGRESS_GANGBYEON = 0.0;
+
+    // 플랫폼 모드 WASD 이동 업데이트
+    function updatePlatformWalk(dt) {
+      if (viewMode !== 5) return;
+
+      const moveSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 5.0 : 2.8;
+
+      // 바라보는 방향 기준 이동
+      const fwdX = Math.sin(platformYaw);
+      const fwdZ = Math.cos(platformYaw);
+      const rgtX = Math.cos(platformYaw);
+      const rgtZ = -Math.sin(platformYaw);
+
+      if (keys.KeyW) { platformPos.x += fwdX * moveSpeed * dt; platformPos.z += fwdZ * moveSpeed * dt; }
+      if (keys.KeyS) { platformPos.x -= fwdX * moveSpeed * dt; platformPos.z -= fwdZ * moveSpeed * dt; }
+      if (keys.KeyD) { platformPos.x += rgtX * moveSpeed * dt; platformPos.z += rgtZ * moveSpeed * dt; }
+      if (keys.KeyA) { platformPos.x -= rgtX * moveSpeed * dt; platformPos.z -= rgtZ * moveSpeed * dt; }
+
+      // 승강장 높이 고정 (Y = 승강장 슬라브 상면)
+      platformPos.y = 17.7;
+
+      // 열차와의 거리 체크 (탑승 가능 여부)
+      const nearCar = cars[5]; // 중간 객차 기준
+      if (nearCar) {
+        const distToTrain = platformPos.distanceTo(nearCar.position);
+        const newBoardable = distToTrain < 9.0;
+        if (newBoardable !== platformBoardable) {
+          platformBoardable = newBoardable;
+          const hint = document.getElementById("board-hint");
+          if (hint) hint.style.display = platformBoardable ? "block" : "none";
+        }
+
+        // F키 탑승
+        if (platformBoardable && keys.KeyF && !platformBoarded) {
+          boardTrain();
+        }
+      }
+
+      // 출발 중: 열차 가속
+      if (platformDeparting) {
+        platformDepartTimer -= dt;
+        if (platformDepartTimer <= 0) {
+          // 출발 완료 → 승객 모드로 전환
+          setViewMode(2);
+          trainSpeed = 0;
+          started = true;
+          platformDeparting = false;
+          platformBoarded = true;
+        }
+      }
+    }
+
+    function boardTrain() {
+      if (platformBoarded) return;
+      platformBoarded = true;
+      platformDeparting = true;
+      platformDepartTimer = 2.5; // 2.5초 후 출발
+      trainSpeed = 0;
+
+      // 스크린도어 닫힘 연출 (hint 텍스트 변경)
+      const hint = document.getElementById("board-hint");
+      if (hint) {
+        hint.style.display = "block";
+        document.getElementById("board-hint-title").textContent = "🚪 출입문이 닫힙니다";
+        document.getElementById("board-hint-sub").textContent = "잠시 후 출발합니다...";
+      }
+
+      // 플레이어를 선택한 객차 내부로 이동 (승객 좌석)
+      currentCarIndex = 4;
+      isSeated = true;
+      passengerLocalPos.set(-0.65, 1.25, 0.0);
+      targetEyeY = 1.25;
+      curEyeY = 1.25;
+      orbitYaw = 0.0;
+      orbitPitch = -0.06;
+
+      // 열차 잠실나루역에 정차 중 progress 세팅
+      progress = PLATFORM_PROGRESS_JAMSIL;
+
+      // 2.5초 후 viewMode 2로 전환 (updatePlatformWalk에서 처리)
+    }
 
     function updatePhysics(dt) {
       if (viewMode === 2) {
@@ -7134,12 +7471,57 @@
     let introVisible = getComputedStyle(intro).display !== "none";
     window.isIntroVisible = () => introVisible;
 
+    // 시작 지점 선택 UI 전역 함수 (인트로 카드에서 onclick으로 호출)
+    window.selectStartLoc = function(loc, e) {
+      if (e && e.stopPropagation) e.stopPropagation();
+      startMode = loc;
+      ['platform', 'train', 'driver'].forEach(id => {
+        const el = document.getElementById('loc-' + id);
+        if (el) el.classList.toggle('active', id === loc);
+      });
+      // 출발 버튼 텍스트 업데이트
+      const startBtnEl = document.getElementById('start');
+      if (startBtnEl) {
+        if (loc === 'platform') startBtnEl.textContent = '🚉 역 승강장에서 시작';
+        else if (loc === 'train') startBtnEl.textContent = '🚇 열차 안에서 시작';
+        else if (loc === 'driver') startBtnEl.textContent = '🚞 운전실에서 시작';
+      }
+    };
+
     function dismissIntro() {
       if (introVisible || intro.style.display !== "none") {
         intro.style.display = "none";
         introVisible = false;
-        started = true;
         audio.init();
+
+        // 선택된 시작 지점에 따라 초기 상태 설정
+        if (startMode === 'platform') {
+          // 역 승강장 모드: 열차를 잠실나루역에 정차시키고 플레이어를 승강장에 배치
+          progress = PLATFORM_PROGRESS_JAMSIL;
+          trainSpeed = 0;
+          started = false; // 열차 정지 상태
+          platformPos.copy(STATION_PLATFORM_POS);
+          platformPos.x += 7.0;  // 승강장 중심 (선로 옆)
+          platformPos.z -= 10.0; // 열차 중간 위치 앞
+          platformYaw = Math.PI; // 열차 방향
+          platformPitch = -0.05;
+          platformBoarded = false;
+          platformDeparting = false;
+          platformBoardable = false;
+          setViewMode(5);
+        } else if (startMode === 'driver') {
+          // 운전실 모드
+          progress = 0.38;
+          trainSpeed = 16.7;
+          started = true;
+          setViewMode(1);
+        } else {
+          // 기본: 달리는 열차 안 승객 시점
+          progress = 0.38;
+          trainSpeed = 16.7;
+          started = true;
+          setViewMode(2);
+        }
       }
     }
     startBtn.addEventListener("click", dismissIntro);
@@ -7221,9 +7603,16 @@
     canvas.addEventListener("mousemove", (e) => {
       if (!isMouseDown) return;
       markCameraInput();
-      orbitYaw -= e.movementX * 0.003;
-      orbitPitch += e.movementY * 0.0025;
-      orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+      if (viewMode === 5) {
+        // 플랫폼 모드: platformYaw/Pitch 제어
+        platformYaw -= e.movementX * 0.003;
+        platformPitch += e.movementY * 0.0025;
+        platformPitch = THREE.MathUtils.clamp(platformPitch, -0.55, 0.55);
+      } else {
+        orbitYaw -= e.movementX * 0.003;
+        orbitPitch += e.movementY * 0.0025;
+        orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+      }
     });
 
     window.addEventListener("wheel", (e) => {
@@ -8204,6 +8593,7 @@
       checkLogbookTriggers(progress);
 
       processMobileInput(dt);
+      updatePlatformWalk(dt);
       updatePhysics(dt);
 
       // 차량 이동 애니메이션 (동서 왕복)

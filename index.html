@@ -1811,7 +1811,7 @@
   <div id="card-mission">
     <div class="mission-tag">운행 과제</div>
     <div class="mission-headline" id="mission-headline-text">자동 운전으로 이동 중</div>
-    <div class="mission-detail">제한 속도 70 km/h · 10량 정차</div>
+    <div class="mission-detail">제한 속도 200 km/h · 10량 정차</div>
   </div>
 
   <!-- 상단 중앙: 시점 안내 프롬프트 -->
@@ -6347,18 +6347,18 @@
       }
 
       if (keys.ArrowUp) {
-        trainSpeed += 7.0 * dt;
+        trainSpeed += 12.0 * dt;
         mNotch.textContent = "역행";
         mNotch.style.color = "#22c55e";
       } else if (keys.ArrowDown || keys.Space) {
-        trainSpeed -= (keys.Space ? 20.0 : 10.0) * dt;
+        trainSpeed -= (keys.Space ? 25.0 : 12.0) * dt;
         mNotch.textContent = "제동";
         mNotch.style.color = "#f59e0b";
       } else if (keys.KeyX) {
         mNotch.textContent = "타행";
         mNotch.style.color = "#22c55e";
       }
-      trainSpeed = THREE.MathUtils.clamp(trainSpeed, 0, 25.0);
+      trainSpeed = THREE.MathUtils.clamp(trainSpeed, 0, 55.56); // 최대 200 km/h (55.56 m/s) 해제
 
       // 2호선 4각 순환선 무한 순환 운행 (끊김 없는 완벽한 루프 주행)
       if (started) {

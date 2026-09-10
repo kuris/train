@@ -33,6 +33,8 @@
       /* 우측 상단 세로 스택(시각 카드 / 날씨패널 버튼 / 날씨·시간 퀵바) 행 높이 */
       --tui-r1-h: clamp(30px, 6vmin, 46px);
       --tui-r2-h: clamp(26px, 5.2vmin, 38px);
+      /* 운전 시점 하단 대시보드 높이 */
+      --tui-dash-h: clamp(52px, 11vmin, 84px);
 
       --ui-green: #22c55e;
       --line2-green: #00a84d;
@@ -894,6 +896,11 @@
       box-shadow: 0 2px 10px rgba(14, 165, 233, 0.4);
     }
 
+    /* 운전 시점: 하단 대시보드가 조이스틱 위에 얹히므로 스택 기준선을 그만큼 올린다 */
+    body.drive-hud {
+      --tui-stack: calc(var(--joy-zone) + var(--tui-dash-h) + var(--tui-gap) * 2 + var(--sa-b));
+    }
+
     /* ============================================================
        터치 UI (폴드 커버/폴드 펼침/일반폰/태블릿/가로모드 공통)
        - 판정: 폭 900 이하 또는 터치 포인터 (기존 640 단일 판정은 폴드 펼침에서 실패)
@@ -997,8 +1004,26 @@
         display: none !important;
       }
 
+      /* 조이스틱·가속/제동 위로 올려 겹침 제거 */
       #bottom-dash {
+        bottom: calc(var(--joy-zone) + var(--sa-b));
+        min-height: var(--tui-dash-h);
         padding: calc(var(--tui-gap) * 0.6) var(--tui-edge) calc(var(--tui-gap) * 0.5);
+      }
+
+      /* 가속/제동은 좌우 조이스틱 사이 빈 공간에 가로 배치
+         (기본 규칙이 이 블록보다 뒤에 있어 특이도를 한 단계 올린다) */
+      body #mob-drive-btns {
+        flex-direction: row;
+        bottom: calc(var(--joy-inset) + var(--sa-b));
+      }
+
+      #action-hint {
+        bottom: var(--tui-stack);
+        padding: calc(var(--tui-gap) * 0.5) calc(var(--tui-gap) * 1.6);
+        font-size: var(--tui-font);
+        max-width: 46vw;
+        text-align: center;
       }
 
       .dash-metrics-row {
@@ -1026,6 +1051,18 @@
 
       #mob-view-fab {
         display: flex !important;
+      }
+    }
+
+    /* 좁은 화면(폴드 커버 등): 대시보드가 여러 줄로 늘어나지 않도록 보조 지표 숨김 */
+    @media (max-width: 560px) {
+      .col-metric:has(#m-pressure),
+      .col-metric:has(#m-progress) {
+        display: none;
+      }
+
+      .notch-led-bar {
+        display: none;
       }
     }
 
@@ -2368,58 +2405,91 @@
     const matInsulator = new THREE.MeshStandardMaterial({ color: 0x8b4513, roughness: 0.3 }); // 갈색 도자기 현수 애자
     const matSpeedSign = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
 
+    // ------------------------------------------------------------
+    // 교각 / 전차선 설비: 반복 요소 약 1,000개가 씬 직속 Mesh로 있었음.
+    // 지점별로 반복되는 8종을 InstancedMesh로 통합 (드로우콜 ~1,000 -> 8).
+    // ------------------------------------------------------------
+    const catT = [];
+    for (let t = 0.008; t < 1.0; t += 0.012) catT.push(t);
+    const CAT_N = catT.length;
+    const CAT_MAST_H = 6.4;
+
+    const imPier    = new THREE.InstancedMesh(new THREE.BoxGeometry(4.8, 1.0, 7.8), matConcreteBridge, CAT_N);
+    const imMast    = new THREE.InstancedMesh(new THREE.BoxGeometry(0.24, CAT_MAST_H, 0.24), matCatenarySteel, CAT_N * 2);
+    const imBeamTop = new THREE.InstancedMesh(new THREE.BoxGeometry(9.0, 0.14, 0.14), matCatenarySteel, CAT_N);
+    const imBeamBot = new THREE.InstancedMesh(new THREE.BoxGeometry(9.0, 0.12, 0.12), matCatenarySteel, CAT_N);
+    const imIns     = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.09, 0.45, 8), matInsulator, CAT_N * 2);
+    const imArm     = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.02, 0.02, 0.65, 6), matCatenarySteel, CAT_N * 2);
+    const imGPost   = new THREE.InstancedMesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), matGreenRail, CAT_N);
+    const imDropper = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.008, 0.008, 0.75, 6), matWire, CAT_N * 2);
+
+    {
+      const cm = new THREE.Matrix4();
+      const cp = new THREE.Vector3();
+      const cs = new THREE.Vector3(1, 1, 1);
+      const ce = new THREE.Euler();
+      const cq = new THREE.Quaternion();
+      const qId = new THREE.Quaternion();
+      const qArm = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0.4));
+      const cf = makeRouteFrame();
+      const TRACK_X = [-1.6, 1.6];
+      let di = 0; // 2배 인스턴스용 인덱스
+
+      for (let ci = 0; ci < CAT_N; ci++) {
+        const f = routeFrameAt(catT[ci], cf);
+        ce.set(0, f.yaw, 0);
+        cq.setFromEuler(ce);
+
+        // 교각 (높이가 지점마다 다르므로 단위 박스를 Y 스케일)
+        const pierH = f.p.y + 0.5;
+        cp.set(f.p.x, pierH / 2 - 0.2, f.p.z);
+        cs.set(1, pierH, 1);
+        imPier.setMatrixAt(ci, cm.compose(cp, cq, cs));
+        cs.set(1, 1, 1);
+
+        // 전차선 포털 지주 (Steel Portal Lattice Mast)
+        cp.copy(f.p).addScaledVector(f.right, -4.4); cp.y += CAT_MAST_H / 2;
+        imMast.setMatrixAt(ci * 2, cm.compose(cp, qId, cs));
+        cp.copy(f.p).addScaledVector(f.right, 4.4); cp.y += CAT_MAST_H / 2;
+        imMast.setMatrixAt(ci * 2 + 1, cm.compose(cp, qId, cs));
+
+        // 워렌 트러스 빔 (상하 이중 빔)
+        cp.copy(f.p); cp.y += CAT_MAST_H - 0.15;
+        imBeamTop.setMatrixAt(ci, cm.compose(cp, cq, cs));
+        cp.copy(f.p); cp.y += CAT_MAST_H - 0.75;
+        imBeamBot.setMatrixAt(ci, cm.compose(cp, cq, cs));
+
+        // 녹색 지주
+        cp.copy(f.p).addScaledVector(f.right, 5.8); cp.y += 0.55;
+        imGPost.setMatrixAt(ci, cm.compose(cp, qId, cs));
+
+        for (let k = 0; k < 2; k++) {
+          const trackX = TRACK_X[k];
+          di = ci * 2 + k;
+
+          // 고전압 3단 핀 도자기 애자 (Insulator Stack)
+          cp.copy(f.p).addScaledVector(f.right, trackX); cp.y += 6.0;
+          imIns.setMatrixAt(di, cm.compose(cp, qId, cs));
+
+          // 곡선당김금구 (Registration Steady Arm)
+          cp.copy(f.p).addScaledVector(f.right, trackX + 0.15); cp.y += 5.4;
+          imArm.setMatrixAt(di, cm.compose(cp, qArm, cs));
+
+          // 전차선 드롭퍼 (수직 행어 와이어)
+          cp.copy(f.p).addScaledVector(f.right, trackX); cp.y += 5.575;
+          imDropper.setMatrixAt(di, cm.compose(cp, qId, cs));
+        }
+      }
+
+      [imPier, imMast, imBeamTop, imBeamBot, imIns, imArm, imGPost, imDropper].forEach(im => {
+        im.instanceMatrix.needsUpdate = true;
+        im.computeBoundingSphere();
+        scene.add(im);
+      });
+    }
+
     for (let t = 0.008; t < 1.0; t += 0.012) {
       const f = routeFrameAt(t);
-      const pierH = f.p.y + 0.5;
-      const pier = new THREE.Mesh(new THREE.BoxGeometry(4.8, pierH, 7.8), matConcreteBridge);
-      pier.position.set(f.p.x, pierH / 2 - 0.2, f.p.z);
-      pier.rotation.y = f.yaw;
-      scene.add(pier);
-
-      // 전차선 포털 지주 (Steel Portal Lattice Mast)
-      const mastH = 6.4;
-      const mastL = new THREE.Mesh(new THREE.BoxGeometry(0.24, mastH, 0.24), matCatenarySteel);
-      mastL.position.copy(f.p).addScaledVector(f.right, -4.4).add(new THREE.Vector3(0, mastH / 2, 0));
-      scene.add(mastL);
-
-      const mastR = new THREE.Mesh(new THREE.BoxGeometry(0.24, mastH, 0.24), matCatenarySteel);
-      mastR.position.copy(f.p).addScaledVector(f.right, 4.4).add(new THREE.Vector3(0, mastH / 2, 0));
-      scene.add(mastR);
-
-      // 워렌 트러스 빔 (상하 이중 빔 & 사선 브레이스)
-      const beamTop = new THREE.Mesh(new THREE.BoxGeometry(9.0, 0.14, 0.14), matCatenarySteel);
-      beamTop.position.copy(f.p).add(new THREE.Vector3(0, mastH - 0.15, 0));
-      beamTop.rotation.y = f.yaw;
-      scene.add(beamTop);
-
-      const beamBottom = new THREE.Mesh(new THREE.BoxGeometry(9.0, 0.12, 0.12), matCatenarySteel);
-      beamBottom.position.copy(f.p).add(new THREE.Vector3(0, mastH - 0.75, 0));
-      beamBottom.rotation.y = f.yaw;
-      scene.add(beamBottom);
-
-      // 고전압 3단 핀 도자기 애자 (Insulator Stack)
-      [-1.6, 1.6].forEach(trackX => {
-        const ins = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.45, 8), matInsulator);
-        ins.position.copy(f.p).addScaledVector(f.right, trackX).add(new THREE.Vector3(0, 6.0, 0));
-        scene.add(ins);
-
-        // 곡선당김금구 (Registration Steady Arm)
-        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.65, 6), matCatenarySteel);
-        arm.position.copy(f.p).addScaledVector(f.right, trackX + 0.15).add(new THREE.Vector3(0, 5.4, 0));
-        arm.rotation.z = 0.4;
-        scene.add(arm);
-      });
-
-      const gPost = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.1, 0.08), matGreenRail);
-      gPost.position.copy(f.p).addScaledVector(f.right, 5.8).add(new THREE.Vector3(0, 0.55, 0));
-      scene.add(gPost);
-
-      // 전차선 드롭퍼 (수직 행어 와이어 - 촘촘한 배치)
-      [-1.6, 1.6].forEach(trackX => {
-        const dropper = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.75, 6), matWire);
-        dropper.position.copy(f.p).addScaledVector(f.right, trackX).add(new THREE.Vector3(0, 5.575, 0));
-        scene.add(dropper);
-      });
 
       // 철도 보안장치 ATS 지상자 (노란색 트랜스폰더 발리스)
       if (Math.round(t * 1000) % 24 === 0) {
@@ -5034,6 +5104,10 @@
         cameraDistance = 16.0;
       }
 
+      // 하단 대시보드 유무에 따라 터치 UI 스택 기준선 전환
+      document.body.classList.toggle("drive-hud", mode !== 2);
+      requestAnimationFrame(syncDashHeight);
+
       // 시점 변경 시에만 모바일 운전 UI 동기화 (매 프레임 DOM 쓰기 제거)
       if (typeof updateMobDriveUI === "function") updateMobDriveUI();
       // setViewMode가 안내 문구를 덮어썼으므로 다음 갱신에서 구간 문구를 다시 쓰게 한다
@@ -5147,6 +5221,14 @@
         }
         camera.lookAt(sideLook);
       }
+    }
+
+    // 하단 대시보드는 화면 폭에 따라 지표가 줄바꿈되어 높이가 달라진다.
+    // 실제 높이를 --tui-dash-h에 반영해 위쪽 터치 UI 스택이 겹치지 않게 한다.
+    function syncDashHeight() {
+      if (!bottomDash) return;
+      const h = bottomDash.offsetHeight;
+      if (h > 0) document.body.style.setProperty("--tui-dash-h", h + "px");
     }
 
     // 시야 밖 객차 인테리어 컬링.
@@ -5935,6 +6017,7 @@
       bloom.setSize(w * QUALITY.bloomScale, h * QUALITY.bloomScale);
       // 폴드 접힘/펼침·회전으로 뷰포트가 바뀌면 터치 UI 상태도 다시 평가
       if (typeof updateMobDriveUI === "function") updateMobDriveUI();
+      syncDashHeight();
     }
     function onViewportChange() {
       // 렌더타깃 재할당은 비싸므로 연속 resize를 한 번으로 합침
@@ -6274,6 +6357,12 @@
     window._kbKeys = {};
     document.addEventListener("keydown", (e2) => { window._kbKeys[e2.code] = true; });
     document.addEventListener("keyup", (e2) => { window._kbKeys[e2.code] = false; });
+
+    // 대시보드 높이 관측 시작 (콜백이 늦는 환경을 대비해 시점 전환/리사이즈에서도 직접 호출)
+    if (window.ResizeObserver && bottomDash) {
+      new ResizeObserver(syncDashHeight).observe(bottomDash);
+    }
+    syncDashHeight();
 
     // 초기 모바일 UI 상태
     updateMobDriveUI();

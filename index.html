@@ -3463,30 +3463,32 @@
     // 개선된 나무 시스템: GLB 로드 + 5종 절쉠적 폴백
     // ============================================================
 
-    // 절차적 나무 생성기 (5종 차분한 감성 색조)
-    const matTrunkA = new THREE.MeshStandardMaterial({ color: 0x42332c, roughness: 0.92 });
-    const matTrunkB = new THREE.MeshStandardMaterial({ color: 0x4e3826, roughness: 0.88 });
-    const matOak    = new THREE.MeshStandardMaterial({ color: 0x385542, roughness: 0.80 });
-    const matOak2   = new THREE.MeshStandardMaterial({ color: 0x44664c, roughness: 0.78 });
-    const matPine   = new THREE.MeshStandardMaterial({ color: 0x2a4434, roughness: 0.78 });
-    const matGinkgo = new THREE.MeshStandardMaterial({ color: 0x82964a, roughness: 0.80 });
-    const matCherry = new THREE.MeshStandardMaterial({ color: 0xd8b2ba, roughness: 0.82 });
-    const matMaple  = new THREE.MeshStandardMaterial({ color: 0xb86c38, roughness: 0.80 });
-    const matMaple2 = new THREE.MeshStandardMaterial({ color: 0xa8502a, roughness: 0.80 });
-    const matBush   = new THREE.MeshStandardMaterial({ color: 0x2d4d38, roughness: 0.85 });
+    // ------------------------------------------------------------
+    // 사실적인 한강변 수목 및 도로 가로수 머티리얼 (한국 수종 자연 색감)
+    // ------------------------------------------------------------
+    const matTrunkA = new THREE.MeshStandardMaterial({ color: 0x483e36, roughness: 0.90 }); // 고목 회갈색 거친 수피
+    const matTrunkPine = new THREE.MeshStandardMaterial({ color: 0x584236, roughness: 0.92 }); // 소나무 적갈색 수피
+    const matTrunkWillow = new THREE.MeshStandardMaterial({ color: 0x423b34, roughness: 0.88 }); // 수양버들 수피
+    const matTrunkMetaseq = new THREE.MeshStandardMaterial({ color: 0x564438, roughness: 0.90 }); // 메타세쿼이아 수피
+
+    // 5대 수종 수관 머티리얼 (인위적인 원색 주황/단색 원형 배제, 입체 셰이딩)
+    const matZelkova = new THREE.MeshStandardMaterial({ color: 0x3d5a3e, roughness: 0.85, flatShading: true }); // 느티나무 풍성한 숲 녹색
+    const matZelkova2 = new THREE.MeshStandardMaterial({ color: 0x486b4a, roughness: 0.82, flatShading: true }); // 느티나무 햇빛 잎
+    const matWillow = new THREE.MeshStandardMaterial({ color: 0x546e52, roughness: 0.86, flatShading: true }); // 수양버들 세이지 녹색
+    const matWillowLight = new THREE.MeshStandardMaterial({ color: 0x607d5c, roughness: 0.84, flatShading: true });
+    const matMetasequoia = new THREE.MeshStandardMaterial({ color: 0x4b643c, roughness: 0.85, flatShading: true }); // 메타세쿼이아 웜 올리브
+    const matMetaseqTop = new THREE.MeshStandardMaterial({ color: 0x597444, roughness: 0.82, flatShading: true });
+    const matGinkgo = new THREE.MeshStandardMaterial({ color: 0x7a894a, roughness: 0.82, flatShading: true }); // 은행나무 (가을빛 옐로그린)
+    const matGinkgo2 = new THREE.MeshStandardMaterial({ color: 0x8a9a54, roughness: 0.80, flatShading: true });
+    const matPine = new THREE.MeshStandardMaterial({ color: 0x253b2d, roughness: 0.88, flatShading: true }); // 해송 짙은 솔잎
+    const matBush = new THREE.MeshStandardMaterial({ color: 0x395035, roughness: 0.88, flatShading: true }); // 하부 관목
+    const matBushLight = new THREE.MeshStandardMaterial({ color: 0x486444, roughness: 0.85, flatShading: true });
 
     // ------------------------------------------------------------
     // 정적 그룹 인스턴싱 베이크
     // 같은 (지오메트리 파라미터 + 머티리얼 외형) 조합의 메시를 InstancedMesh
     // 하나로 합친다. 절차적 생성 코드는 그대로 두고 배치가 끝난 뒤 한 번 실행.
-    // 움직이는 그룹(차량/구름/유람선)에는 절대 쓰지 말 것.
     // ------------------------------------------------------------
-    // 파라미터가 같아도 생성 후 변형(translate/rotate)된 지오메트리가 있을 수 있으므로
-    // 실제 정점 데이터 일부까지 시그니처에 포함한다.
-    // 나무 줄기 공용 머티리얼 (그루마다 new 하던 것을 공유해 머티리얼 수 감소 + 인스턴싱 가능)
-    const matTrunkPine = new THREE.MeshStandardMaterial({ color: 0x8b3a20, roughness: 0.88 });
-    const matTrunkCherry = new THREE.MeshStandardMaterial({ color: 0x5c3a28, roughness: 0.85 });
-
     function geoSignature(g) {
       const pos = g.attributes && g.attributes.position;
       let sig = g.type + ":" + JSON.stringify(g.parameters || {}) +
@@ -3509,15 +3511,10 @@
       if (meshes.length === 0) return group;
 
       const buckets = new Map();
-      const skipped = [];   // 인스턴싱 대상이 아닌 메시(머티리얼 배열 등)는 그대로 되살린다
+      const skipped = [];
       for (const o of meshes) {
         const g = o.geometry;
         const m = o.material;
-        // 병합 제외 대상:
-        //  - 면별 머티리얼(Array)
-        //  - 커스텀 ShaderMaterial: 직접 작성한 버텍스 셰이더가 instanceMatrix를
-        //    반영하지 않으므로 인스턴싱하면 전 인스턴스가 한 자리에 겹친다
-        //    (아파트 동체 절차적 창문 셰이더가 여기 해당)
         if (!g || !m || Array.isArray(m) || m.isShaderMaterial || m.isRawShaderMaterial) {
           skipped.push({ mesh: o, world: o.matrixWorld.clone() });
           continue;
@@ -3535,7 +3532,6 @@
       }
       if (buckets.size === 0) return group;
 
-      // 대표로 살릴 지오메트리/머티리얼
       const keepGeo = new Set();
       const keepMat = new Set();
       buckets.forEach(b => { keepGeo.add(b.geometry); keepMat.add(b.material); });
@@ -3546,9 +3542,7 @@
         else keepMat.add(mm);
       });
 
-      // 그룹의 월드 변환을 되돌려 로컬 행렬로 저장 (그룹이 이동해도 따라가게)
       const invGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
-
       group.clear();
 
       buckets.forEach(b => {
@@ -3563,81 +3557,134 @@
         group.add(im);
       });
 
-      // 병합하지 않은 메시를 월드 변환 그대로 복원
       skipped.forEach(sk => {
         const o = sk.mesh;
         sk.world.premultiply(invGroup).decompose(o.position, o.quaternion, o.scale);
         group.add(o);
       });
 
-      // 합쳐지면서 버려진 지오메트리/머티리얼 정리 (GPU 메모리 회수)
       for (const o of meshes) {
-        if (o.parent) continue;   // 복원된 메시는 건드리지 않음
+        if (o.parent) continue;
         if (o.geometry && !keepGeo.has(o.geometry)) o.geometry.dispose();
         if (o.material && !Array.isArray(o.material) && !keepMat.has(o.material)) o.material.dispose();
       }
       return group;
     }
 
+    // 사실적인 다단 복합 볼륨 수목 생성기 (단일 구형 막대기 제거)
     function makeProcTree(type, scale) {
       const g = new THREE.Group();
       scale = scale || 1.0;
       switch (type % 5) {
-        case 0: { // 참나무 (Oak) - 넓은 구형 수관
-          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 3.8, 8), matTrunkA);
-          tr.position.y = 1.9; tr.castShadow = true; g.add(tr);
-          const c = new THREE.Mesh(new THREE.SphereGeometry(2.9, 10, 10), matOak);
-          c.position.y = 5.5; c.scale.set(1, 0.82, 1); c.castShadow = true; c.receiveShadow = true; g.add(c);
-          for (let i = 0; i < 5; i++) {
-            const a = (i / 5) * Math.PI * 2;
-            const s = new THREE.Mesh(new THREE.SphereGeometry(1.65, 8, 8), i % 2 === 0 ? matOak : matOak2);
-            s.position.set(Math.cos(a) * 1.9, 4.0 + Math.random() * 1.5, Math.sin(a) * 1.9);
-            s.castShadow = true; g.add(s);
-          }
-          break;
-        }
-        case 1: { // 소나무 (Korean Red Pine) - 다단 원듿
-          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.35, 4.5, 8), matTrunkPine);
-          tr.position.y = 2.25; tr.castShadow = true; g.add(tr);
-          [[3.2, 2.0, 4.5], [2.3, 1.7, 6.2], [1.5, 1.3, 7.7]].forEach(([r, h, y]) => {
-            const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10), matPine);
-            cone.position.y = y; cone.castShadow = true; cone.receiveShadow = true; g.add(cone);
+        case 0: { // 느티나무 (Zelkova Serrata) - 한국 대표 가로수 & 풍성한 숲 그늘목
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.52, 4.4, 7), matTrunkA);
+          tr.position.y = 2.2; tr.castShadow = true; g.add(tr);
+
+          // 가지 분기 (Main branch boughs)
+          [-0.22, 0.22].forEach((bx, bi) => {
+            const bough = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.24, 2.2, 5), matTrunkA);
+            bough.position.set(bx, 3.8, (bi === 0 ? 0.15 : -0.15));
+            bough.rotation.z = (bi === 0 ? 0.35 : -0.35);
+            g.add(bough);
+          });
+
+          // 복합 볼륨 돔 수관 (중앙 메인 돔 + 4개 비대칭 볼륨 클러스터)
+          const mainDome = new THREE.Mesh(new THREE.IcosahedronGeometry(2.7, 1), matZelkova);
+          mainDome.position.y = 5.8; mainDome.scale.set(1.15, 0.9, 1.15);
+          mainDome.castShadow = true; mainDome.receiveShadow = true; g.add(mainDome);
+
+          const offsets = [
+            [-1.5, 5.0, 0.8, 1.6, matZelkova2],
+            [1.4, 5.2, -0.7, 1.7, matZelkova],
+            [0.6, 5.5, 1.4, 1.5, matZelkova2],
+            [-0.8, 4.8, -1.3, 1.4, matZelkova]
+          ];
+          offsets.forEach(([ox, oy, oz, r, mat]) => {
+            const lobe = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat);
+            lobe.position.set(ox, oy, oz);
+            lobe.scale.set(1.1, 0.85, 1.1);
+            lobe.castShadow = true; lobe.receiveShadow = true; g.add(lobe);
           });
           break;
         }
-        case 2: { // 은행나무 (Ginkgo) - 원통형 수관
-          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.38, 5.0, 8), matTrunkB);
-          tr.position.y = 2.5; tr.castShadow = true; g.add(tr);
-          const cyl = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 2.0, 5.0, 10), matGinkgo);
-          cyl.position.y = 7.5; cyl.castShadow = true; cyl.receiveShadow = true; g.add(cyl);
-          const top = new THREE.Mesh(new THREE.SphereGeometry(1.55, 8, 8), matGinkgo);
-          top.scale.y = 0.7; top.position.y = 10.3; top.castShadow = true; g.add(top);
-          break;
-        }
-        case 3: { // 볚꽃나무 (Cherry Blossom)
-          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.30, 3.2, 8), matTrunkCherry);
-          tr.position.y = 1.6; tr.castShadow = true; g.add(tr);
-          const main = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 10), matCherry);
-          main.position.y = 5.0; main.scale.set(1.2, 0.75, 1.2); main.castShadow = true; g.add(main);
+
+        case 1: { // 수양버들 (Weeping Willow) - 한강 둔치 및 수변 대표 수종
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.50, 4.5, 7), matTrunkWillow);
+          tr.position.y = 2.25; tr.rotation.z = 0.04; tr.castShadow = true; g.add(tr);
+
+          const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(2.5, 1), matWillow);
+          crown.position.y = 5.6; crown.scale.set(1.2, 0.75, 1.2);
+          crown.castShadow = true; crown.receiveShadow = true; g.add(crown);
+
+          // 아래로 길게 드리워진 버들가지 수관 (Cascading weeping clusters)
           for (let i = 0; i < 6; i++) {
-            const a = (i / 6) * Math.PI * 2;
-            const b = new THREE.Mesh(new THREE.SphereGeometry(1.45, 8, 8), matCherry);
-            b.position.set(Math.cos(a) * 2.0, 3.8 + Math.random() * 1.2, Math.sin(a) * 2.0);
-            b.castShadow = true; g.add(b);
+            const ang = (i / 6) * Math.PI * 2 + 0.2;
+            const dist = 1.6 + (i % 2) * 0.4;
+            const weep = new THREE.Mesh(new THREE.IcosahedronGeometry(1.45, 1), i % 2 === 0 ? matWillow : matWillowLight);
+            weep.position.set(Math.cos(ang) * dist, 4.0 - (i % 3) * 0.4, Math.sin(ang) * dist);
+            weep.scale.set(0.9, 1.6, 0.9);
+            weep.castShadow = true; weep.receiveShadow = true; g.add(weep);
           }
           break;
         }
-        case 4: { // 단풍나무 (Maple)
-          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.20, 0.32, 3.5, 8), matTrunkA);
-          tr.position.y = 1.75; tr.castShadow = true; g.add(tr);
-          const main = new THREE.Mesh(new THREE.SphereGeometry(2.25, 10, 10), matMaple);
-          main.position.y = 5.0; main.castShadow = true; g.add(main);
+
+        case 2: { // 메타세쿼이아 (Metasequoia) - 강변북로/올림픽대로 가로수길
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.46, 8.8, 7), matTrunkMetaseq);
+          tr.position.y = 4.4; tr.castShadow = true; g.add(tr);
+
+          // 위로 갈수록 좁아지는 4단 원추형 층상 수관
+          const tiers = [
+            { y: 5.6, r: 2.5, sy: 1.45, mat: matMetasequoia },
+            { y: 7.8, r: 2.0, sy: 1.40, mat: matMetasequoia },
+            { y: 9.8, r: 1.5, sy: 1.35, mat: matMetaseqTop },
+            { y: 11.4, r: 0.95, sy: 1.5, mat: matMetaseqTop }
+          ];
+          tiers.forEach(t => {
+            const m = new THREE.Mesh(new THREE.IcosahedronGeometry(t.r, 1), t.mat);
+            m.position.y = t.y; m.scale.set(1.0, t.sy, 1.0);
+            m.castShadow = true; m.receiveShadow = true; g.add(m);
+          });
+          break;
+        }
+
+        case 3: { // 은행나무 (Ginkgo Biloba) - 서울 공식 가로수 (은은한 옐로그린 톤)
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.44, 5.0, 7), matTrunkA);
+          tr.position.y = 2.5; tr.castShadow = true; g.add(tr);
+
+          const gCenter = new THREE.Mesh(new THREE.IcosahedronGeometry(2.3, 1), matGinkgo);
+          gCenter.position.y = 6.4; gCenter.scale.set(1.0, 1.45, 1.0);
+          gCenter.castShadow = true; gCenter.receiveShadow = true; g.add(gCenter);
+
           for (let i = 0; i < 4; i++) {
-            const a = (i / 4) * Math.PI * 2 + 0.4;
-            const s = new THREE.Mesh(new THREE.SphereGeometry(1.35, 8, 8), i % 2 === 0 ? matMaple : matMaple2);
-            s.position.set(Math.cos(a) * 1.6, 4.0 + Math.random(), Math.sin(a) * 1.6);
-            s.castShadow = true; g.add(s);
+            const ang = (i / 4) * Math.PI * 2 + 0.4;
+            const sideLobe = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 1), i % 2 === 0 ? matGinkgo : matGinkgo2);
+            sideLobe.position.set(Math.cos(ang) * 1.3, 5.5 + (i % 2) * 0.8, Math.sin(ang) * 1.3);
+            sideLobe.scale.set(0.9, 1.3, 0.9);
+            sideLobe.castShadow = true; sideLobe.receiveShadow = true; g.add(sideLobe);
           }
+          break;
+        }
+
+        case 4: { // 소나무 (Korean Red Pine) - 곡선 줄기 & 다단 차양 수관
+          const trLower = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.45, 3.2, 7), matTrunkPine);
+          trLower.position.y = 1.6; trLower.rotation.z = 0.08;
+          trLower.castShadow = true; g.add(trLower);
+
+          const trUpper = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 3.0, 7), matTrunkPine);
+          trUpper.position.set(0.25, 4.2, 0); trUpper.rotation.z = -0.12;
+          trUpper.castShadow = true; g.add(trUpper);
+
+          const pinePads = [
+            { x: -0.8, y: 4.8, z: 0.4, r: 1.8, sx: 1.45, sz: 1.3 },
+            { x: 0.9, y: 5.4, z: -0.5, r: 1.7, sx: 1.4, sz: 1.4 },
+            { x: 0.2, y: 6.6, z: 0.2, r: 2.0, sx: 1.5, sz: 1.5 }
+          ];
+          pinePads.forEach(p => {
+            const pad = new THREE.Mesh(new THREE.IcosahedronGeometry(p.r, 1), matPine);
+            pad.position.set(p.x, p.y, p.z);
+            pad.scale.set(p.sx, 0.46, p.sz);
+            pad.castShadow = true; pad.receiveShadow = true; g.add(pad);
+          });
           break;
         }
       }
@@ -3648,146 +3695,132 @@
     function makeBush(scale) {
       const g = new THREE.Group();
       scale = scale || 1.0;
-      [0, 0.7, 1.4, 2.1].forEach((a, i) => {
-        const s = new THREE.Mesh(new THREE.SphereGeometry(0.85 + i * 0.12, 7, 7), matBush);
-        s.position.set(Math.cos(a * 1.8) * 0.5, 0.7, Math.sin(a * 1.8) * 0.5);
-        s.castShadow = true; g.add(s);
+      const bGeo = new THREE.IcosahedronGeometry(0.9, 1);
+      [
+        [-0.45, 0.45, 0.0, 1.0, matBush],
+        [0.45, 0.48, 0.1, 1.1, matBushLight],
+        [0.0, 0.55, -0.3, 0.95, matBush],
+        [0.1, 0.42, 0.35, 0.85, matBushLight]
+      ].forEach(([x, y, z, sc, mat]) => {
+        const s = new THREE.Mesh(bGeo, mat);
+        s.position.set(x, y, z);
+        s.scale.set(sc * 1.3, sc * 0.75, sc * 1.2);
+        s.castShadow = true; s.receiveShadow = true; g.add(s);
       });
       g.scale.setScalar(scale);
       return g;
     }
 
     const treeGroup = new THREE.Group();
-    const treePositions = []; // GLB 로드 성공 시 교체용
-
-    // 나무 배치 데이터 생성 (rng 시드 고정으로 일관성 유지)
     const rng = (seed => () => { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return ((seed >>> 0) / 0xffffffff); })(12345);
 
-    // 남단 한강공원 나무들 (여러 종류 혼합)
-    for (let x = -1400; x <= 1800; x += 32) {
-      const row1Z = 522 + rng() * 28 - 14;
-      const row2Z = 550 + rng() * 22 - 11;
-      // 앎줄: 주로 벳꽃나무와 은행나무
-      const tType1 = rng() > 0.4 ? 3 : 2; // 60% cherry, 40% ginkgo
-      const scale1 = 0.65 + rng() * 0.4;
-      const t1 = makeProcTree(tType1, scale1);
-      t1.position.set(x + rng() * 10 - 5, 4.5, row1Z);
-      t1.rotation.y = rng() * Math.PI * 2;
-      treeGroup.add(t1);
-      treePositions.push({ pos: t1.position.clone(), type: tType1, scale: scale1 });
+    // ------------------------------------------------------------
+    // 1. 강변북로 및 올림픽대로 완충 녹지 가로수길 (Highway Avenue Trees)
+    // ------------------------------------------------------------
+    // 남단 올림픽대로 녹지대 (Z = 608 ~ 618)
+    for (let x = -1350; x <= 1750; x += 26) {
+      const tType = (rng() > 0.45) ? 2 : 0; // 메타세쿼이아 55%, 느티나무 45%
+      const sc = 1.15 + rng() * 0.35;
+      const t = makeProcTree(tType, sc);
+      t.position.set(x + rng() * 6 - 3, 4.5, 610 + rng() * 10 - 5);
+      t.rotation.y = rng() * Math.PI * 2;
+      treeGroup.add(t);
 
-      // 뒷줄: 주로 참나무와 단풍나무
-      if (rng() > 0.35) {
-        const tType2 = rng() > 0.5 ? 0 : 4; // oak or maple
-        const scale2 = 0.7 + rng() * 0.45;
-        const t2 = makeProcTree(tType2, scale2);
-        t2.position.set(x + rng() * 8 - 4, 4.5, row2Z);
-        t2.rotation.y = rng() * Math.PI * 2;
-        treeGroup.add(t2);
-      }
-
-      // 들뚩저리 덕불 (10m 간격)
-      if (Math.round(x / 32) % 3 === 0) {
-        const bush = makeBush(0.5 + rng() * 0.4);
-        bush.position.set(x + 15 + rng() * 12, 4.5, 508 + rng() * 18);
-        treeGroup.add(bush);
-      }
+      // 가로수 하부 덤불
+      const b = makeBush(0.75 + rng() * 0.4);
+      b.position.set(x + 13, 4.5, 610 + rng() * 6 - 3);
+      treeGroup.add(b);
     }
 
-    // 북단 한강공원 나무들
-    for (let x = -1400; x <= 1800; x += 35) {
-      const row1Z = -522 - rng() * 26 + 13;
-      const row2Z = -548 - rng() * 20 + 10;
-      // 소나무와 참나무 혼합 (서울 북식 한강공원 특유)
-      const tType1 = [1, 1, 3, 0, 2][Math.floor(rng() * 5)];
-      const scale1 = 0.6 + rng() * 0.45;
-      const t1 = makeProcTree(tType1, scale1);
-      t1.position.set(x + rng() * 10 - 5, 4.5, row1Z);
-      t1.rotation.y = rng() * Math.PI * 2;
-      treeGroup.add(t1);
+    // 북단 강변북로 녹지대 (Z = -600 ~ -610)
+    for (let x = -1350; x <= 1750; x += 26) {
+      const tType = (rng() > 0.45) ? 2 : 0;
+      const sc = 1.15 + rng() * 0.35;
+      const t = makeProcTree(tType, sc);
+      t.position.set(x + rng() * 6 - 3, 4.5, -605 + rng() * 10 - 5);
+      t.rotation.y = rng() * Math.PI * 2;
+      treeGroup.add(t);
 
-      if (rng() > 0.3) {
-        const tType2 = rng() > 0.5 ? 1 : 4;
-        const t2 = makeProcTree(tType2, 0.65 + rng() * 0.4);
-        t2.position.set(x + rng() * 8 - 4, 4.5, row2Z);
-        t2.rotation.y = rng() * Math.PI * 2;
-        treeGroup.add(t2);
-      }
-
-      if (Math.round(x / 35) % 3 === 0) {
-        const bush = makeBush(0.45 + rng() * 0.35);
-        bush.position.set(x + 16 + rng() * 10, 4.5, -508 - rng() * 16);
-        treeGroup.add(bush);
-      }
+      const b = makeBush(0.75 + rng() * 0.4);
+      b.position.set(x + 13, 4.5, -605 + rng() * 6 - 3);
+      treeGroup.add(b);
     }
 
-    // 압물 단 군락 식재 (River bank clusters)
-    for (let x = -1200; x <= 1600; x += 90) {
-      const clusterSZ = 465 + rng() * 15;
-      const clusterNZ = -462 - rng() * 15;
-      for (let c = 0; c < 3; c++) {
-        const tS = makeProcTree(rng() > 0.5 ? 3 : 0, 0.5 + rng() * 0.35);
-        tS.position.set(x + (c - 1) * 16 + rng() * 8, 4.5, clusterSZ);
-        tS.rotation.y = rng() * Math.PI * 2;
-        treeGroup.add(tS);
-        const tN = makeProcTree(rng() > 0.5 ? 1 : 2, 0.5 + rng() * 0.35);
-        tN.position.set(x + (c - 1) * 16 + rng() * 8, 4.5, clusterNZ);
-        tN.rotation.y = rng() * Math.PI * 2;
-        treeGroup.add(tN);
+    // ------------------------------------------------------------
+    // 2. 한강공원 잔디 광장 그늘 숲 군락 (Park Lawn Groves)
+    // ------------------------------------------------------------
+    // 남단 잠실 한강공원 (Z: 515 ~ 555)
+    for (let x = -1300; x <= 1700; x += 55) {
+      // 2~3그루씩 유기적 군락 식재 (Groves)
+      const numInGrove = 2 + Math.floor(rng() * 2);
+      const centerZ = 535 + rng() * 18 - 9;
+      for (let k = 0; k < numInGrove; k++) {
+        const tType = [0, 3, 4][Math.floor(rng() * 3)]; // 느티나무, 은행나무, 소나무
+        const sc = 1.05 + rng() * 0.4;
+        const t = makeProcTree(tType, sc);
+        t.position.set(x + (k - 1) * 14 + rng() * 8, 4.5, centerZ + rng() * 12 - 6);
+        t.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t);
       }
+      // 군락 하부 관목 화단
+      const b = makeBush(0.9 + rng() * 0.5);
+      b.position.set(x + rng() * 8, 4.5, centerZ);
+      treeGroup.add(b);
     }
 
-    // 나무 581그루 = 메시 3,198개(줄기/수관/구엽)를 종·부위별 InstancedMesh로 통합
+    // 북단 뚝섬 한강공원 (Z: -515 ~ -555)
+    for (let x = -1300; x <= 1700; x += 55) {
+      const numInGrove = 2 + Math.floor(rng() * 2);
+      const centerZ = -535 + rng() * 18 - 9;
+      for (let k = 0; k < numInGrove; k++) {
+        const tType = [0, 3, 4][Math.floor(rng() * 3)];
+        const sc = 1.05 + rng() * 0.4;
+        const t = makeProcTree(tType, sc);
+        t.position.set(x + (k - 1) * 14 + rng() * 8, 4.5, centerZ + rng() * 12 - 6);
+        t.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t);
+      }
+      const b = makeBush(0.9 + rng() * 0.5);
+      b.position.set(x + rng() * 8, 4.5, centerZ);
+      treeGroup.add(b);
+    }
+
+    // ------------------------------------------------------------
+    // 3. 한강 수변 둔치 수양버들 & 소나무 군락 (Waterfront Willows & Pines)
+    // ------------------------------------------------------------
+    // 남단 수변 (Z: 468 ~ 478)
+    for (let x = -1150; x <= 1550; x += 48) {
+      const isWillow = rng() > 0.35;
+      const tType = isWillow ? 1 : 4; // 수양버들 65%, 소나무 35%
+      const sc = 1.1 + rng() * 0.35;
+      const t = makeProcTree(tType, sc);
+      t.position.set(x + rng() * 12 - 6, 4.5, 472 + rng() * 8 - 4);
+      t.rotation.y = rng() * Math.PI * 2;
+      treeGroup.add(t);
+
+      const b = makeBush(0.8 + rng() * 0.3);
+      b.position.set(x + 12, 4.5, 472);
+      treeGroup.add(b);
+    }
+
+    // 북단 수변 (Z: -468 ~ -478)
+    for (let x = -1150; x <= 1550; x += 48) {
+      const isWillow = rng() > 0.35;
+      const tType = isWillow ? 1 : 4;
+      const sc = 1.1 + rng() * 0.35;
+      const t = makeProcTree(tType, sc);
+      t.position.set(x + rng() * 12 - 6, 4.5, -472 + rng() * 8 - 4);
+      t.rotation.y = rng() * Math.PI * 2;
+      treeGroup.add(t);
+
+      const b = makeBush(0.8 + rng() * 0.3);
+      b.position.set(x + 12, 4.5, -472);
+      treeGroup.add(b);
+    }
+
+    // GPU InstancedMesh로 수목 메시 전량 자동 인스턴싱 베이크 (단일/극소 드로우콜 유지)
     bakeStaticGroup(treeGroup);
     scene.add(treeGroup);
-
-    // GLB 나무 로드 시도 (CORS 안전 + 폴백 지원)
-    const glbLoader = new GLTFLoader();
-    const treeGLBUrls = [
-      "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/tree-spruce/model.gltf",
-      "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/tree-lime/model.gltf"
-    ];
-
-    const loadedGLBTrees = [];
-    let glbLoadAttempts = 0;
-    treeGLBUrls.forEach((url, idx) => {
-      glbLoader.load(url, (gltf) => {
-        const model = gltf.scene;
-        model.traverse(obj => {
-          if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
-        });
-        // 스케일 조정 (Quaternius 모델은 크기가 작음)
-        const targetH = 6.5 + idx * 2.0;
-        const box = new THREE.Box3().setFromObject(model);
-        const h = box.max.y - box.min.y;
-        if (h > 0) model.scale.setScalar(targetH / h);
-        loadedGLBTrees[idx] = model;
-        glbLoadAttempts++;
-
-        // 둘 다 로드되면 일부 나무를 GLB로 교체
-        if (glbLoadAttempts >= 2) {
-          const glbGroup = new THREE.Group();
-          for (let x = -1200; x <= 1600; x += 120) {
-            [-1, 1].forEach(side => {
-              const zi = side < 0 ? -535 : 535;
-              const glbIdx = Math.floor(rng() * loadedGLBTrees.length);
-              const src = loadedGLBTrees.find((m) => m !== undefined);
-              if (!src) return;
-              const clone = src.clone();
-              clone.position.set(x + rng() * 20 - 10, 4.5, zi + rng() * 20 - 10);
-              clone.rotation.y = rng() * Math.PI * 2;
-              const sc = 0.7 + rng() * 0.5;
-              clone.scale.multiplyScalar(sc);
-              glbGroup.add(clone);
-            });
-          }
-          scene.add(glbGroup);
-        }
-      }, undefined, () => {
-        // GLB 로드 실패 시 좋은 절쉠적 트리가 이미 배치되어 있음
-        console.log('GLB tree load failed, using procedural trees');
-      });
-    });
 
     // ============================================================
     // 사실감 향상: 강변 바위/돌 평상 매트리얼

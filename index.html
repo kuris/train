@@ -855,9 +855,9 @@
     /* 플랫폼 탑승 힌트 (역 승강장 모드) */
     #board-hint {
       position: fixed;
-      top: 50%;
+      bottom: 14%;
       left: 50%;
-      transform: translate(-50%, -50%);
+      transform: translateX(-50%);
       z-index: 40;
       background: rgba(8, 14, 26, 0.92);
       border: 1.5px solid rgba(56,189,248,0.6);
@@ -886,6 +886,21 @@
       color: #94a3b8;
       font-weight: 600;
     }
+    #board-btn {
+      margin-top: 12px;
+      pointer-events: auto;
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 26px;
+      font-size: 13.5px;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      color: #04121f;
+      background: linear-gradient(180deg, #7dd3fc, #38bdf8);
+      box-shadow: 0 6px 18px rgba(56,189,248,0.35);
+    }
+    #board-btn:active { transform: translateY(1px); filter: brightness(0.95); }
 
     /* 역 승강장 모드 안내 오버레이 */
     #platform-ui {
@@ -2205,9 +2220,10 @@
   <div id="board-hint">
     <div id="board-hint-title">🚇 열차가 정차했습니다</div>
     <div id="board-hint-sub">F 키 또는 아래 버튼으로 탑승</div>
+    <button id="board-btn" type="button">🚪 탑승하기</button>
   </div>
 
-  <div id="platform-ui">🚉 <span id="platform-station-name">잠실나루역</span> 승강장 · WASD 이동 · 마우스 둘러보기 · 열차에 가까이 가면 탑승</div>
+  <div id="platform-ui">🚉 <span id="platform-station-name">잠실나루역</span> 승강장 · WASD 이동 · 마우스 드래그 둘러보기 · 열차 옆에서 F 키 탑승</div>
 
   <div id="intro">
     <div id="intro-card" onclick="event.stopPropagation()">
@@ -2926,6 +2942,42 @@
       return f;
     }
 
+    // 선로 곡선 위에서 주어진 월드 좌표(XZ)에 가장 가까운 progress(호길이 비율 u)를 찾는다.
+    // progress는 getPointAt(u) 기준이므로 CatmullRom 제어점 인덱스(파라메트릭 t)를 그대로 쓰면
+    // 수백 m 어긋난다. 역 정차 위치는 반드시 이 함수로 구한다.
+    function progressAtWorldPoint(tx, tz) {
+      const p = new THREE.Vector3();
+      let best = 0, bestD = Infinity;
+      const COARSE = 4000;
+      for (let i = 0; i < COARSE; i++) {
+        const u = i / COARSE;
+        routeCurve.getPointAt(u, p);
+        const d = (p.x - tx) ** 2 + (p.z - tz) ** 2;
+        if (d < bestD) { bestD = d; best = u; }
+      }
+      let step = 1 / COARSE;
+      for (let pass = 0; pass < 24; pass++) {
+        step *= 0.5;
+        for (let k = 0; k < 2; k++) {
+          let u = best + (k === 0 ? -step : step);
+          u -= Math.floor(u);
+          routeCurve.getPointAt(u, p);
+          const d = (p.x - tx) ** 2 + (p.z - tz) ** 2;
+          if (d < bestD) { bestD = d; best = u; }
+        }
+      }
+      return best;
+    }
+
+    // 두 정차역의 선로 상 위치 (역사 배치 · 열차 정차 · 승강장 걷기 공용)
+    const STATION_U_JAMSIL    = progressAtWorldPoint(360, 850);
+    const STATION_U_GANGBYEON = progressAtWorldPoint(-360, -850);
+
+    // 승강장 치수 (역사 생성과 승강장 걷기 모드가 같은 값을 쓴다)
+    const STATION_PLATFORM_LEN     = 96.0; // 승강장 길이 (약 4량 정차)
+    const PLATFORM_CENTER_OFFSET_M = 6.4;  // 선로 중심 → 승강장 중심
+    const PLATFORM_SURFACE_Y_M     = 16.0; // 승강장 슬라브 상면 (발 높이)
+
     // 매 프레임 경로 전용 스크래치 (신규 할당 금지)
     const _frameCar = makeRouteFrame();
     const _frameCam = makeRouteFrame();
@@ -3233,7 +3285,7 @@
     scene.add(sigGroup);
 
     // 잠실나루역 진입부 선로전환 크로스오버 건넘선 (Double Crossover Point)
-    const crossoverFrame = routeFrameAt(0.28);
+    const crossoverFrame = routeFrameAt(STATION_U_JAMSIL - 0.022); // 잠실나루역 진입부
     const matFrogSteel = new THREE.MeshStandardMaterial({ color: 0xa0aab5, metalness: 0.9, roughness: 0.2 });
     const xSwitchL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.08, 18), matFrogSteel);
     xSwitchL.position.copy(crossoverFrame.p).add(new THREE.Vector3(0, 0.08, 0));
@@ -4556,10 +4608,15 @@
     }
 
     // 2호선 고가역사 조립 함수
-    function buildLine2ElevatedStation(name, code, posX, posY, posZ, rotY, nextName, prevName) {
+    // 2호선 고가역사 조립 함수
+    // 역은 곡선 선로 위에 있으므로, 직선 박스를 통째로 회전시키는 대신
+    // 승강장 길이 방향(z)을 선로 곡선을 따라 분할 배치해 실제 선로에 밀착시킨다.
+    //   x: 승강장 로컬 좌우 (선로 중심 기준, -x가 외선 선로/승강장 쪽)
+    //   y: 승강장 슬라브 상면(=baseY) 기준 높이
+    //   z: 승강장 중앙 기준 선로 진행 방향 거리(m)
+    function buildLine2ElevatedStation(name, code, centerU, baseY, nextName, prevName) {
       const st = new THREE.Group();
-      st.position.set(posX, posY, posZ);
-      st.rotation.y = rotY;
+      const _sf = makeRouteFrame();
 
       const concMat = new THREE.MeshStandardMaterial({ color: 0xc4c7cc, roughness: 0.82, metalness: 0.1 });
       const platMat = new THREE.MeshStandardMaterial({ color: 0xd6d8dc, roughness: 0.75, metalness: 0.12 });
@@ -4568,168 +4625,181 @@
       const psdGlassMat = new THREE.MeshStandardMaterial({ color: 0xa8d0e6, transparent: true, opacity: 0.65, roughness: 0.15, metalness: 0.3 });
       const line2GreenMat = new THREE.MeshStandardMaterial({ color: 0x3cb44a, roughness: 0.4, metalness: 0.2 });
       const roofGlassMat = new THREE.MeshStandardMaterial({ color: 0xbde2f5, transparent: true, opacity: 0.5, roughness: 0.2 });
+      // 캐노피 패널은 승강장 천장이 되므로 트러스보다 밝은 회색으로 (완전 암흑 방지)
+      const roofPanelMat = new THREE.MeshStandardMaterial({ color: 0x8792a0, roughness: 0.6, metalness: 0.35 });
 
       const signTex = createStationSignTexture(name, code, nextName, prevName);
       const signMat = new THREE.MeshBasicMaterial({ map: signTex });
 
-      const len = 120; // 6량 열차 수용 가능한 현실적 컴팩트 승강장 길이
-      const platW = 4.4; // 승강장 폭
-      const platOffset = 6.4; // 선로 중심에서 승강장 중심까지 거리
+      const len = STATION_PLATFORM_LEN; // 승강장 길이 (4량 정차 길이)
+      const platW = 4.4;                // 승강장 폭
+      const platOffset = PLATFORM_CENTER_OFFSET_M; // 선로 중심 → 승강장 중심
+      const SEG = 12;                   // 곡선 추종 분할 길이(m)
 
-      // 1. 하부 지지 콘크리트 교각 기둥 (Y= -16 에서 승강장 하부까지)
-      for (let z = -len / 2 + 10; z <= len / 2 - 10; z += 24) {
+      // 로컬 (x, y, z) → 선로 곡선 위 월드 좌표에 배치
+      function place(mesh, x, y, z) {
+        const f = routeFrameAt(centerU + z / routeLength, _sf);
+        mesh.position.copy(f.p).addScaledVector(f.right, -x);
+        mesh.position.y = baseY + y;
+        mesh.rotation.y = f.yaw;
+        st.add(mesh);
+        return mesh;
+      }
+
+      // 길이 방향으로 긴 구조물은 곡선을 따라 분할 배치.
+      // 분할 박스는 이음매에 쐐기 틈이 생기므로 살짝 겹치게 만든다.
+      function addStrip(w, h, totalLen, mat, x, y, opt) {
+        const n = Math.max(1, Math.round(totalLen / SEG));
+        const sl = totalLen / n;
+        for (let i = 0; i < n; i++) {
+          const z = -totalLen / 2 + sl * (i + 0.5);
+          const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, sl + 0.9), mat);
+          if (opt && opt.cast) m.castShadow = true;
+          if (opt && opt.receive) m.receiveShadow = true;
+          place(m, x, y, z);
+        }
+      }
+
+      // 승강장 바닥/난간/지붕처럼 이음매가 보이면 안 되는 면은
+      // 곡선을 따라 이어지는 연속 리본(띠) 메시로 만든다. (틈·계단 현상 없음)
+      const ribbonMats = new Map();
+      function ribbonMat(src) {
+        if (!ribbonMats.has(src)) {
+          const m = src.clone();
+          m.side = THREE.DoubleSide;
+          ribbonMats.set(src, m);
+        }
+        return ribbonMats.get(src);
+      }
+      // (xA,yA) → (xB,yB) 두 모서리를 잇는 띠를 승강장 길이만큼 생성
+      function addRibbon(xA, yA, xB, yB, totalLen, mat, opt) {
+        const n = Math.max(8, Math.ceil(totalLen / 3.0));
+        const pos = [], uv = [], idx = [];
+        for (let i = 0; i <= n; i++) {
+          const z = -totalLen / 2 + (totalLen * i) / n;
+          const f = routeFrameAt(centerU + z / routeLength, _sf);
+          pos.push(f.p.x - f.right.x * xA, baseY + yA, f.p.z - f.right.z * xA);
+          pos.push(f.p.x - f.right.x * xB, baseY + yB, f.p.z - f.right.z * xB);
+          uv.push(0, (i / n) * (totalLen / 4), 1, (i / n) * (totalLen / 4));
+          if (i < n) {
+            const k = i * 2;
+            idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2);
+          }
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+        g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+        g.setIndex(idx);
+        g.computeVertexNormals();
+        const m = new THREE.Mesh(g, ribbonMat(mat));
+        if (opt && opt.cast) m.castShadow = true;
+        if (opt && opt.receive) m.receiveShadow = true;
+        st.add(m);
+        return m;
+      }
+
+      // 1. 하부 지지 콘크리트 교각 기둥
+      for (let z = -len / 2 + 8; z <= len / 2 - 8; z += 24) {
         [-platOffset, platOffset].forEach(px => {
-          const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, posY, 12), concMat);
-          pier.position.set(px, -posY / 2, z);
+          const pier = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, baseY, 12), concMat);
           pier.castShadow = true;
-          st.add(pier);
+          place(pier, px, -baseY / 2, z);
 
-          // 교각 캡 상판 지지대
           const cap = new THREE.Mesh(new THREE.BoxGeometry(platW + 1.2, 1.0, 3.2), concMat);
-          cap.position.set(px, -0.5, z);
-          st.add(cap);
+          place(cap, px, -0.5, z);
         });
 
         // 궤도 지지 가로보
         const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2, 0.9, 2.2), darkSteelMat);
-        crossBeam.position.set(0, -0.6, z);
-        st.add(crossBeam);
+        place(crossBeam, 0, -0.6, z);
       }
 
       // 2. 상대식 승강장 바닥 슬라브 (좌우 2면)
       [-1, 1].forEach(side => {
         const px = side * platOffset;
+        const inX = px - side * platW / 2;  // 선로 쪽 모서리
+        const outX = px + side * platW / 2; // 바깥 쪽 모서리
 
-        // 콘크리트 슬라브
-        const slab = new THREE.Mesh(new THREE.BoxGeometry(platW, 0.7, len), platMat);
-        slab.position.set(px, -0.35, 0);
-        slab.receiveShadow = true;
-        st.add(slab);
+        // 콘크리트 슬라브 (상면 + 양옆 측면을 연속 리본으로)
+        addRibbon(inX, 0, outX, 0, len, platMat, { receive: true });
+        addRibbon(inX, 0, inX, -0.7, len, platMat);
+        addRibbon(outX, 0, outX, -0.7, len, platMat);
 
         // 노란색 점자 안전선 타일 (선로 측 가장자리)
         const edgeX = px - side * (platW / 2 - 0.25);
-        const yellowLine = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.04, len), yellowTileMat);
-        yellowLine.position.set(edgeX, 0.02, 0);
-        st.add(yellowLine);
+        addRibbon(edgeX - 0.2, 0.03, edgeX + 0.2, 0.03, len, yellowTileMat);
 
-        // 반밀폐형 스크린도어 (PSD) 프레임 & 유리
+        // 반밀폐형 스크린도어 (PSD)
+        // 실제 지상역 PSD는 허리~가슴 높이의 유리 난간이다. 2.1m 짜리 불투명
+        // 강판으로 세우면 승강장에서 열차가 통째로 가려지므로
+        // 얇은 프레임 + 투명 유리 + 그린 헤더 구성으로 만든다.
         const psdLen = len - 10;
-        const psdFence = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.1, psdLen), darkSteelMat);
-        psdFence.position.set(edgeX + side * 0.08, 1.05, 0);
-        st.add(psdFence);
-
-        // 스크린도어 유리 패널
-        const psdGlass = new THREE.Mesh(new THREE.PlaneGeometry(psdLen, 1.6), psdGlassMat);
-        psdGlass.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-        psdGlass.position.set(edgeX + side * 0.08, 1.1, 0);
-        st.add(psdGlass);
-
-        // 상단 2호선 시그니처 그린 헤더 띠
-        const psdHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.35, psdLen), line2GreenMat);
-        psdHeader.position.set(edgeX + side * 0.08, 2.15, 0);
-        st.add(psdHeader);
+        const psdX = edgeX + side * 0.08;
+        addRibbon(psdX, 0.0, psdX, 0.14, psdLen, darkSteelMat);   // 하부 레일
+        addRibbon(psdX, 0.16, psdX, 1.40, psdLen, psdGlassMat);   // 유리 패널 (투과)
+        addRibbon(psdX, 1.42, psdX, 1.58, psdLen, darkSteelMat);  // 상부 레일
+        addRibbon(psdX, 1.58, psdX, 1.72, psdLen, line2GreenMat); // 2호선 그린 헤더
+        for (let z = -psdLen / 2; z <= psdLen / 2 + 0.01; z += 3.4) {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.5, 0.14), darkSteelMat);
+          place(post, psdX, 0.75, z);
+        }
 
         // 승강장 외측 난간벽 (방음벽/외벽)
         const outerX = px + side * (platW / 2 - 0.1);
-        const outerWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.4, len), concMat);
-        outerWall.position.set(outerX, 1.2, 0);
-        outerWall.castShadow = true;
-        st.add(outerWall);
+        addRibbon(outerX, 0, outerX, 2.4, len, concMat, { cast: true });
 
-        // 승강장 기둥 & 지붕 트러스
+        // 승강장 기둥 · 역명판 · 조명 · 벤치
         for (let z = -len / 2 + 8; z <= len / 2 - 8; z += 16) {
           const col = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 5.2, 8), darkSteelMat);
-          col.position.set(px, 2.6, z);
-          st.add(col);
+          place(col, px, 2.6, z);
 
-          // 역명판 부착
           const sign = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 3.2), signMat);
-          sign.position.set(px - side * 0.8, 3.2, z);
-          st.add(sign);
+          place(sign, px - side * 0.8, 3.2, z);
 
-          // 승강장 LED 조명등 (PointLight 제거, 블룸 발광 바로 60fps 확보)
           const ledBar = new THREE.Mesh(
             new THREE.BoxGeometry(0.16, 0.08, 3.2),
             new THREE.MeshBasicMaterial({ color: 0xfffae0 })
           );
-          ledBar.position.set(px, 5.0, z);
-          st.add(ledBar);
+          place(ledBar, px, 5.0, z);
 
-          // 승강장 벤치
           const bench = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.45, 2.4), darkSteelMat);
-          bench.position.set(px, 0.25, z + 5.0);
-          st.add(bench);
+          place(bench, px, 0.25, z + 5.0);
         }
       });
 
-      // 3. 역사 아치형 캐노피 지붕 (시원하고 사실적인 트러스 구조)
-      const roofArch = new THREE.Group();
+      // 3. 역사 캐노피 지붕 (트러스 빔 + 좌우 패널 + 중앙 채광창)
       const roofW = platOffset * 2 + platW + 2.0;
       for (let z = -len / 2; z <= len / 2; z += 8) {
-        // 아치 트러스 빔
         const archBeam = new THREE.Mesh(new THREE.BoxGeometry(roofW, 0.35, 0.35), darkSteelMat);
-        archBeam.position.set(0, 5.8, z);
-        roofArch.add(archBeam);
+        place(archBeam, 0, 5.8, z);
       }
-      // 좌우 및 상부 지붕 패널
-      const roofPanelL = new THREE.Mesh(new THREE.PlaneGeometry(roofW * 0.42, len), darkSteelMat);
-      roofPanelL.rotation.x = Math.PI / 2;
-      roofPanelL.rotation.y = 0.12;
-      roofPanelL.position.set(-roofW * 0.26, 6.1, 0);
-      roofArch.add(roofPanelL);
+      addRibbon(-roofW * 0.47, 6.05, -roofW * 0.13, 6.20, len, roofPanelMat);
+      addRibbon(roofW * 0.13, 6.20, roofW * 0.47, 6.05, len, roofPanelMat);
+      addRibbon(-roofW * 0.13, 6.20, roofW * 0.13, 6.30, len, roofGlassMat);
 
-      const roofPanelR = new THREE.Mesh(new THREE.PlaneGeometry(roofW * 0.42, len), darkSteelMat);
-      roofPanelR.rotation.x = Math.PI / 2;
-      roofPanelR.rotation.y = -0.12;
-      roofPanelR.position.set(roofW * 0.26, 6.1, 0);
-      roofArch.add(roofPanelR);
+      // 4. 하부 역사 대합실(Concourse)
+      addStrip(platOffset * 2 + platW - 1, 5.0, 48, concMat, 0, -baseY * 0.48, { cast: true });
+      addStrip(platOffset * 2 + platW + 0.1, 1.8, 44, psdGlassMat, 0, -baseY * 0.48 + 0.4);
+      addStrip(platOffset * 2 + platW + 0.2, 0.45, 48.2, line2GreenMat, 0, -baseY * 0.48 + 1.8);
 
-      // 중앙 반투명 채광창 (스카이라이트: 열차에서 하늘이 보임)
-      const skylight = new THREE.Mesh(new THREE.PlaneGeometry(roofW * 0.24, len), roofGlassMat);
-      skylight.rotation.x = Math.PI / 2;
-      skylight.position.set(0, 6.3, 0);
-      roofArch.add(skylight);
-      st.add(roofArch);
-
-      // 4. 하부 역사 대합실(Concourse) 박스 (Y = -7.5)
-      const concourse = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2 + platW - 1, 5.0, 48), concMat);
-      concourse.position.set(0, -posY * 0.48, 0);
-      concourse.castShadow = true;
-      st.add(concourse);
-
-      // 대합실 유리창 및 2호선 녹색 띠
-      const concGlass = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2 + platW + 0.1, 1.8, 44), psdGlassMat);
-      concGlass.position.set(0, -posY * 0.48 + 0.4, 0);
-      st.add(concGlass);
-
-      const concBand = new THREE.Mesh(new THREE.BoxGeometry(platOffset * 2 + platW + 0.2, 0.45, 48.2), line2GreenMat);
-      concBand.position.set(0, -posY * 0.48 + 1.8, 0);
-      st.add(concBand);
-
-      // 5. 지상 1번/2번 출구 연결 계단실 박스 (지상 Y = -16 에서 대합실까지)
+      // 5. 지상 1번/2번 출구 계단실
       [-1, 1].forEach(side => {
-        const exitBox = new THREE.Mesh(new THREE.BoxGeometry(5.2, posY * 0.52, 12.0), concMat);
-        exitBox.position.set(side * (platOffset + 4.5), -posY * 0.74, 8);
+        const exitBox = new THREE.Mesh(new THREE.BoxGeometry(5.2, baseY * 0.52, 12.0), concMat);
         exitBox.castShadow = true;
-        st.add(exitBox);
+        place(exitBox, side * (platOffset + 4.5), -baseY * 0.74, 8);
 
-        // 출구 캐노피
         const exitRoof = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.4, 13.0), darkSteelMat);
-        exitRoof.position.set(side * (platOffset + 4.5), -posY + 3.8, 8);
-        st.add(exitRoof);
+        place(exitRoof, side * (platOffset + 4.5), -baseY + 3.8, 8);
       });
 
       return st;
     }
 
     // 잠실나루역 & 강변역 고가역사 배치
-    // 잠실나루역: (360, 16, 850), 각도 0.4007 rad (잠실철교 축과 정렬)
-    const jamsillaruStation = buildLine2ElevatedStation("잠실나루", "214", 360, 16.0, 850, 0.4007, "잠실", "강변");
-    stationGroup.add(jamsillaruStation);
-
-    // 강변역: (-360, 16, -850), 각도 0.4007 rad
-    const gangbyeonStation = buildLine2ElevatedStation("강변", "215", -360, 16.0, -850, 0.4007, "구의", "잠실나루");
-    stationGroup.add(gangbyeonStation);
+    // 역사는 선로 위에 놓이므로 위치/각도를 선로 곡선에서 직접 가져온다.
+    // (기존 고정값 0.4007 rad는 잠실철교 현(弦) 각도라 실제 선로와 최대 14도 어긋났다)
+    stationGroup.add(buildLine2ElevatedStation("잠실나루", "214", STATION_U_JAMSIL, 16.0, "잠실", "강변"));
+    stationGroup.add(buildLine2ElevatedStation("강변", "215", STATION_U_GANGBYEON, 16.0, "구의", "잠실나루"));
 
     // ============================================================
     // 도심 밀도 (Urban Density): 역사 주변 횡단보도, 버스정류장, 따릉이, 보행자
@@ -6213,15 +6283,26 @@
     let startMode = 'train'; // 'platform' | 'train' | 'driver'
 
     // 역 승강장 모드: 플레이어 월드 좌표
-    const STATION_PLATFORM_POS = new THREE.Vector3(360, 17.7, 850); // 잠실나루역 승강장
-    const GANGBYEON_PLATFORM_POS = new THREE.Vector3(-360, 17.7, -850); // 강변역 승강장
-    let platformPos = new THREE.Vector3().copy(STATION_PLATFORM_POS);
+    // 승강장 위 플레이어 발 위치 (enterPlatform에서 선로 좌표로 다시 계산한다)
+    let platformPos = new THREE.Vector3(360, PLATFORM_SURFACE_Y_M, 850);
     let platformYaw = Math.PI; // 승강장에서 열차 바라보는 방향
     let platformPitch = -0.05;
     let platformBoardable = false; // 열차 탑승 가능 거리 안에 있는지
     let platformDepartTimer = 0;   // 탑승 후 출발 카운트다운 (초)
     let platformDeparting = false; // 출발 중
     let platformBoarded = false;   // 탑승 완료
+    let platformStationName = "잠실나루역";
+
+    // 승강장 걷기 가능 범위 (역사 생성값과 동일 기준)
+    const PLATFORM_CENTER_OFFSET = PLATFORM_CENTER_OFFSET_M;
+    const PLATFORM_SURFACE_Y     = PLATFORM_SURFACE_Y_M;
+    const PLATFORM_HALF_LEN      = STATION_PLATFORM_LEN / 2 - 3.0; // 슬라브 끝에서 3m 여유
+    const PLATFORM_HALF_WIDTH    = 1.7;  // 승강장 중앙 기준 좌우 폭(±)
+
+    // 승강장은 곡선 선로를 따라 휘어 있으므로 플레이어 위치도 선로 기준 좌표로 관리한다.
+    let platformStationU = 0;   // 현재 역의 선로 u
+    let platformAlong    = 0;   // 승강장 중앙 기준 선로 진행 방향 거리(m)
+    let platformLateral  = 0;   // 승강장 중앙 기준 좌우 오프셋(m, +면 선로 반대쪽)
 
     // 시작 시점: 차창 밖 한강과 수면이 평화롭게 펼쳐지는 앵글
     let orbitYaw = 0.08;
@@ -6297,9 +6378,8 @@
         cardAlignHud.style.display = "none";
         topGuidance.style.display = "none";
         routeModeSub.textContent = "HAN RIVER LINE / 역 승강장";
-        missionHeadline.textContent = "잠실나루역 승강장";
-        platformYaw = Math.PI;
-        platformPitch = -0.05;
+        missionHeadline.textContent = platformStationName + " 승강장";
+        // platformYaw/Pitch는 enterPlatform()에서 선로 방향에 맞춰 계산하므로 덮어쓰지 않는다
       } else if (mode === 2) {
         bottomDash.style.display = "none";
         passengerFooter.style.display = "flex";
@@ -6531,91 +6611,175 @@
     let started = true;
     const keys = {};
 
-    // 플랫폼 모드: 역 정차 progress 값 (잠실나루역 ≈ 0.25)
-    // 잠실나루역은 routePoints[4] = (360, 16, 850) → t ≈ 0.25
-    const PLATFORM_PROGRESS_JAMSIL = 0.25;
-    const PLATFORM_PROGRESS_GANGBYEON = 0.0;
+
+    // progress는 선두차(cars[NUM_CARS-1]) 기준이다.
+    // 1인칭 승객 시점용으로 외벽이 뚫려 있는 객차는 3호차(index 2) 하나뿐이므로
+    // (buildSeoulMetroCarExterior의 isPassengerCar 참고) 그 객차를 승강장 중앙에 세운다.
+    const PASSENGER_CAR_INDEX = 2;
+    const PLATFORM_STOP_LEAD_OFFSET = ((NUM_CARS - 1 - PASSENGER_CAR_INDEX) * CAR_SPACING) / routeLength;
+    const PLATFORM_PROGRESS_JAMSIL    = (STATION_U_JAMSIL + PLATFORM_STOP_LEAD_OFFSET) % 1.0;
+    const PLATFORM_PROGRESS_GANGBYEON = (STATION_U_GANGBYEON + PLATFORM_STOP_LEAD_OFFSET) % 1.0;
+
+    // 승강장 좌표계 스크래치 (곡선 위 프레임 재사용)
+    const _framePlat = makeRouteFrame();
+
+    // (along, lateral) → 월드 좌표. 승강장이 선로 곡선을 따라 휘므로 매번 프레임을 다시 구한다.
+    function platformFrame(along) {
+      return routeFrameAt(platformStationU + along / routeLength, _framePlat);
+    }
+
+    function syncPlatformPosFromLocal() {
+      const f = platformFrame(platformAlong);
+      platformPos.copy(f.p)
+        .addScaledVector(f.right, PLATFORM_CENTER_OFFSET + platformLateral);
+      platformPos.y = PLATFORM_SURFACE_Y;
+      return f;
+    }
+
+    // 선택한 역의 승강장 위에 플레이어를 세운다.
+    function enterPlatform(isJamsil) {
+      platformStationU = isJamsil ? STATION_U_JAMSIL : STATION_U_GANGBYEON;
+
+      // 승강장 중앙에서 열차 뒤쪽으로 물러나고, 선로에서 조금 떨어져 서서 시작
+      platformAlong = -16.0;
+      platformLateral = 0.2;
+      const f = syncPlatformPosFromLocal();
+
+      // 승강장을 따라 열차 편성이 길게 보이도록 살짝 선로 쪽으로 튼 각도.
+      // updateCamera의 forward는 (sin yaw, cos yaw) 규약.
+      _tmpVecA.copy(f.tangent).multiplyScalar(0.94)
+        .addScaledVector(f.right, -0.34)
+        .setY(0).normalize();
+      platformYaw = Math.atan2(_tmpVecA.x, _tmpVecA.z);
+      platformPitch = -0.02;
+
+      platformStationName = isJamsil ? "잠실나루역" : "강변역";
+      platformBoarded = false;
+      platformDeparting = false;
+      platformDepartTimer = 0;
+      platformBoardable = false;
+
+      const platNameEl = document.getElementById("platform-station-name");
+      if (platNameEl) platNameEl.textContent = platformStationName;
+      const btn = document.getElementById("board-btn");
+      if (btn) btn.style.display = "";
+    }
+
+    const BOARD_HINT_TITLE = "🚇 " + (PASSENGER_CAR_INDEX + 1) + "호차 출입문 개방";
+    const BOARD_HINT_SUB = "F 키 또는 아래 버튼으로 탑승";
+
+    function setBoardHint(title, sub, show, withButton) {
+      const hint = document.getElementById("board-hint");
+      if (!hint) return;
+      hint.style.display = show ? "block" : "none";
+      const t = document.getElementById("board-hint-title");
+      const b = document.getElementById("board-hint-sub");
+      const btn = document.getElementById("board-btn");
+      if (t && title !== null) t.textContent = title;
+      if (b && sub !== null) b.textContent = sub;
+      if (btn) btn.style.display = (show && withButton !== false) ? "" : "none";
+    }
 
     // 플랫폼 모드 WASD 이동 업데이트
     function updatePlatformWalk(dt) {
       if (viewMode !== 5) return;
 
+      if (platformDeparting) return; // 출입문 닫히는 중에는 이동/탑승 입력 없음
+
       const moveSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 5.0 : 2.8;
 
-      // 바라보는 방향 기준 이동
+      // 바라보는 방향 기준 이동 (forward = (sin yaw, cos yaw), 화면 오른쪽 = fwd × up)
       const fwdX = Math.sin(platformYaw);
       const fwdZ = Math.cos(platformYaw);
       const rgtX = Math.cos(platformYaw);
       const rgtZ = -Math.sin(platformYaw);
 
-      if (keys.KeyW) { platformPos.x += fwdX * moveSpeed * dt; platformPos.z += fwdZ * moveSpeed * dt; }
-      if (keys.KeyS) { platformPos.x -= fwdX * moveSpeed * dt; platformPos.z -= fwdZ * moveSpeed * dt; }
-      if (keys.KeyA) { platformPos.x += rgtX * moveSpeed * dt; platformPos.z += rgtZ * moveSpeed * dt; }
-      if (keys.KeyD) { platformPos.x -= rgtX * moveSpeed * dt; platformPos.z -= rgtZ * moveSpeed * dt; }
+      let mx = 0, mz = 0;
+      if (keys.KeyW) { mx += fwdX; mz += fwdZ; }
+      if (keys.KeyS) { mx -= fwdX; mz -= fwdZ; }
+      if (keys.KeyA) { mx += rgtX; mz += rgtZ; }
+      if (keys.KeyD) { mx -= rgtX; mz -= rgtZ; }
 
-      // 승강장 높이 고정 (Y = 승강장 슬라브 상면)
-      platformPos.y = 17.7;
+      if (mx !== 0 || mz !== 0) {
+        const inv = moveSpeed * dt / Math.hypot(mx, mz);
+        mx *= inv; mz *= inv;
+        // 월드 이동량을 현재 지점의 선로 프레임 기준 (진행/좌우) 성분으로 분해
+        const f = platformFrame(platformAlong);
+        platformAlong   += mx * f.tangent.x + mz * f.tangent.z;
+        platformLateral += mx * f.right.x   + mz * f.right.z;
+        // 승강장 슬라브 밖으로 나가지 않도록 클램프
+        platformAlong   = THREE.MathUtils.clamp(platformAlong, -PLATFORM_HALF_LEN, PLATFORM_HALF_LEN);
+        platformLateral = THREE.MathUtils.clamp(platformLateral, -PLATFORM_HALF_WIDTH, PLATFORM_HALF_WIDTH);
+      }
+      syncPlatformPosFromLocal();
 
-      // 열차와의 거리 체크 (탑승 가능 여부)
-      const nearCar = cars[5]; // 중간 객차 기준
-      if (nearCar) {
-        const distToTrain = platformPos.distanceTo(nearCar.position);
-        const newBoardable = distToTrain < 9.0;
-        if (newBoardable !== platformBoardable) {
-          platformBoardable = newBoardable;
-          const hint = document.getElementById("board-hint");
-          if (hint) hint.style.display = platformBoardable ? "block" : "none";
-        }
-
-        // F키 탑승
-        if (platformBoardable && keys.KeyF && !platformBoarded) {
-          boardTrain();
-        }
+      // 3호차는 승강장 중앙(along = 0)에 정차한다. 그 객차 앞뒤 범위에 서 있으면 탑승 가능
+      const newBoardable = Math.abs(platformAlong) < 18.0 && trainSpeed < 0.5;
+      if (newBoardable !== platformBoardable) {
+        platformBoardable = newBoardable;
+        setBoardHint(BOARD_HINT_TITLE, BOARD_HINT_SUB, platformBoardable);
       }
 
-      // 출발 중: 열차 가속
-      if (platformDeparting) {
-        platformDepartTimer -= dt;
-        if (platformDepartTimer <= 0) {
-          // 출발 완료 → 승객 모드로 전환 후 열차 출발
-          setViewMode(2);
-          trainSpeed = 16.7; // 60 km/h로 출발
-          started = true;
-          platformDeparting = false;
-          platformBoarded = true;
-        }
+      // F키 탑승
+      if (platformBoardable && keys.KeyF && !platformBoarded) {
+        boardTrain();
       }
     }
 
     function boardTrain() {
-      if (platformBoarded) return;
+      if (platformBoarded || viewMode !== 5) return;
       platformBoarded = true;
       platformDeparting = true;
-      platformDepartTimer = 2.5; // 2.5초 후 출발
+      platformDepartTimer = 2.5; // 출입문 닫힘 연출 후 출발
       trainSpeed = 0;
+      keys.KeyF = false;
 
-      // 스크린도어 닫힘 연출 (hint 텍스트 변경)
-      const hint = document.getElementById("board-hint");
-      if (hint) {
-        hint.style.display = "block";
-        document.getElementById("board-hint-title").textContent = "🚪 출입문이 닫힙니다";
-        document.getElementById("board-hint-sub").textContent = "잠시 후 출발합니다...";
-      }
-
-      // 플레이어를 선택한 객차 내부로 이동 (승객 좌석)
-      currentCarIndex = 4;
+      // 1인칭 승객 시점 전용 객차(3호차) 좌석으로 이동시키고 바로 승객 시점 전환
+      currentCarIndex = PASSENGER_CAR_INDEX;
       isSeated = true;
       passengerLocalPos.set(-0.65, 1.25, 0.0);
       targetEyeY = 1.25;
       curEyeY = 1.25;
+      setViewMode(2);
       orbitYaw = 0.0;
       orbitPitch = -0.06;
+      // progress는 이미 승강장 정차 위치이므로 건드리지 않는다 (열차 순간이동 방지)
 
-      // 현재 선택한 역의 progress 사용
-      const isJamsil = (startMode !== 'platform-gangbyeon');
-      progress = isJamsil ? PLATFORM_PROGRESS_JAMSIL : PLATFORM_PROGRESS_GANGBYEON;
+      // setViewMode(2)가 힌트를 숨기므로 그 뒤에 출발 안내를 다시 띄운다
+      setBoardHint("🚪 출입문이 닫힙니다", "잠시 후 출발합니다...", true, false);
+    }
 
-      // 2.5초 후 viewMode 2로 전환 (updatePlatformWalk에서 처리)
+    // 탑승 후 출발 카운트다운 (시점 전환과 무관하게 매 프레임 진행)
+    function updateDeparture(dt) {
+      if (!platformDeparting) return;
+      platformDepartTimer -= dt;
+      if (platformDepartTimer <= 0) {
+        platformDeparting = false;
+        trainSpeed = 16.7; // 60 km/h로 출발
+        started = true;
+        setBoardHint(null, null, false);
+      }
+    }
+
+    // 현재 progress 기준으로 10량 편성을 선로 위에 배치 (updatePhysics 및 초기 배치 공용)
+    function syncCarsToProgress() {
+      const trackOffset = 1.6; // 외선 순환 선로
+      for (let i = 0; i < NUM_CARS; i++) {
+        const carRoot = cars[i];
+        if (!carRoot) continue;
+        const distFromLead = (NUM_CARS - 1 - i) * CAR_SPACING;
+        let carT = (progress - (distFromLead / routeLength)) % 1.0;
+        if (carT < 0) carT += 1.0;
+        const cf = routeFrameAt(carT, _frameCar);
+
+        _tmpVecA.copy(cf.p).addScaledVector(cf.right, trackOffset);
+        _tmpVecA.y += 0.72;
+        carRoot.position.copy(_tmpVecA);
+
+        _tmpVecB.copy(cf.tangent).negate();
+        _tmpMat.makeBasis(cf.right, cf.up, _tmpVecB);
+        carRoot.quaternion.setFromRotationMatrix(_tmpMat);
+      }
     }
 
     function updatePhysics(dt) {
@@ -6697,17 +6861,20 @@
         if (keys.KeyD) orbitYaw += 1.2 * dt;
       }
 
-      if (keys.ArrowUp) {
-        trainSpeed += 12.0 * dt;
-        mNotch.textContent = "역행";
-        mNotch.style.color = "#22c55e";
-      } else if (keys.ArrowDown || keys.Space) {
-        trainSpeed -= (keys.Space ? 25.0 : 12.0) * dt;
-        mNotch.textContent = "제동";
-        mNotch.style.color = "#f59e0b";
-      } else if (keys.KeyX) {
-        mNotch.textContent = "타행";
-        mNotch.style.color = "#22c55e";
+      // 승강장 모드에서는 주행 노치 입력을 막는다 (플레이어를 두고 열차가 떠나는 문제)
+      if (viewMode !== 5) {
+        if (keys.ArrowUp) {
+          trainSpeed += 12.0 * dt;
+          mNotch.textContent = "역행";
+          mNotch.style.color = "#22c55e";
+        } else if (keys.ArrowDown || keys.Space) {
+          trainSpeed -= (keys.Space ? 25.0 : 12.0) * dt;
+          mNotch.textContent = "제동";
+          mNotch.style.color = "#f59e0b";
+        } else if (keys.KeyX) {
+          mNotch.textContent = "타행";
+          mNotch.style.color = "#22c55e";
+        }
       }
       trainSpeed = THREE.MathUtils.clamp(trainSpeed, 0, 55.56); // 최대 200 km/h (55.56 m/s) 해제
 
@@ -6717,22 +6884,7 @@
       }
 
       // 10량 편성 각 차량을 4각 순환 선로 위에 매끄럽게 배치 (각 객차 완벽 곡선 관절 연동)
-      const trackOffset = 1.6; // 외선 순환 선로
-      for (let i = 0; i < NUM_CARS; i++) {
-        const carRoot = cars[i];
-        const distFromLead = (NUM_CARS - 1 - i) * CAR_SPACING;
-        let carT = (progress - (distFromLead / routeLength)) % 1.0;
-        if (carT < 0) carT += 1.0;
-        const cf = routeFrameAt(carT, _frameCar);
-
-        _tmpVecA.copy(cf.p).addScaledVector(cf.right, trackOffset);
-        _tmpVecA.y += 0.72;
-        carRoot.position.copy(_tmpVecA);
-
-        _tmpVecB.copy(cf.tangent).negate();
-        _tmpMat.makeBasis(cf.right, cf.up, _tmpVecB);
-        carRoot.quaternion.setFromRotationMatrix(_tmpMat);
-      }
+      syncCarsToProgress();
 
       updateCamera(dt);
 
@@ -7521,28 +7673,19 @@
         // 선택된 시작 지점에 따라 초기 상태 설정
         if (startMode === 'platform-jamsil' || startMode === 'platform-gangbyeon') {
           const isJamsil = startMode === 'platform-jamsil';
+          // 열차를 승강장에 정차시킨다 (편성 중앙이 승강장 중앙)
           progress = isJamsil ? PLATFORM_PROGRESS_JAMSIL : PLATFORM_PROGRESS_GANGBYEON;
           trainSpeed = 0;
           started = true;
-          const basePos = isJamsil ? STATION_PLATFORM_POS : GANGBYEON_PLATFORM_POS;
-          platformPos.copy(basePos);
-          platformPos.x += 4.5; // 열차 로미 바로 옆 (즉시 탑승 가능)
-          platformPos.z += 0.0;
-          platformYaw = Math.PI;
-          platformPitch = -0.05;
-          platformBoarded = false;
-          platformDeparting = false;
-          platformBoardable = true; // 시작하자마자 탑승 가능
-          // 탑승 힌트 즉시 표시
-          const hintEl = document.getElementById('board-hint');
-          if (hintEl) {
-            hintEl.style.display = 'block';
-            document.getElementById('board-hint-title').textContent = '🚇 열차가 대기 중입니다';
-            document.getElementById('board-hint-sub').textContent = 'F 키 또는 아래 버튼으로 탑승';
-          }
-          const platNameEl = document.getElementById('platform-station-name');
-          if (platNameEl) platNameEl.textContent = isJamsil ? '잠실나루역' : '강변역';
+
+          // 플레이어를 승강장 위에 세우고 선로 기준 로컬축을 준비
+          enterPlatform(isJamsil);
           setViewMode(5);
+
+          // 열차 위치를 즉시 갱신해야 첫 프레임부터 탑승 판정이 맞는다
+          syncCarsToProgress();
+          platformBoardable = true;
+          setBoardHint(BOARD_HINT_TITLE, BOARD_HINT_SUB, true);
         } else if (startMode === 'driver') {
           // 운전실 모드
           progress = 0.38;
@@ -7558,6 +7701,18 @@
         }
       }
     }
+    // 승강장 탑승 버튼 (모바일/터치 및 마우스 공용)
+    const boardBtnEl = document.getElementById("board-btn");
+    if (boardBtnEl) {
+      const doBoard = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (viewMode === 5 && platformBoardable && !platformBoarded) boardTrain();
+      };
+      boardBtnEl.addEventListener("click", doBoard);
+      boardBtnEl.addEventListener("touchstart", doBoard, { passive: false });
+    }
+
     startBtn.addEventListener("click", dismissIntro);
     intro.addEventListener("click", dismissIntro);
     window.addEventListener("pointerdown", () => audio.init(), { once: true });
@@ -7907,12 +8062,20 @@
       const jlSpeed = 1.8;
       const jlDeadzone = 0.10;
       if (Math.abs(joyLook.x) > jlDeadzone || Math.abs(joyLook.y) > jlDeadzone) markCameraInput();
-      if (Math.abs(joyLook.x) > jlDeadzone) {
-        orbitYaw -= joyLook.x * jlSpeed * dt;
-      }
-      if (Math.abs(joyLook.y) > jlDeadzone) {
-        orbitPitch += joyLook.y * jlSpeed * dt;
-        orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+      if (viewMode === 5) {
+        if (Math.abs(joyLook.x) > jlDeadzone) platformYaw -= joyLook.x * jlSpeed * dt;
+        if (Math.abs(joyLook.y) > jlDeadzone) {
+          platformPitch += joyLook.y * jlSpeed * dt;
+          platformPitch = THREE.MathUtils.clamp(platformPitch, -0.55, 0.55);
+        }
+      } else {
+        if (Math.abs(joyLook.x) > jlDeadzone) {
+          orbitYaw -= joyLook.x * jlSpeed * dt;
+        }
+        if (Math.abs(joyLook.y) > jlDeadzone) {
+          orbitPitch += joyLook.y * jlSpeed * dt;
+          orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+        }
       }
 
       // 외부/선로 시점에서 이동 조이스틱 Y축으로 거리 조절
@@ -7985,9 +8148,15 @@
         if (!prev) return;
         const dx = t.clientX - prev.x;
         const dy = t.clientY - prev.y;
-        orbitYaw -= dx * 0.004;
-        orbitPitch += dy * 0.003;
-        orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+        if (viewMode === 5) {
+          platformYaw -= dx * 0.004;
+          platformPitch += dy * 0.003;
+          platformPitch = THREE.MathUtils.clamp(platformPitch, -0.55, 0.55);
+        } else {
+          orbitYaw -= dx * 0.004;
+          orbitPitch += dy * 0.003;
+          orbitPitch = THREE.MathUtils.clamp(orbitPitch, -0.65, 0.75);
+        }
         canvasTouches[t.identifier] = { x: t.clientX, y: t.clientY };
       });
     }, { passive: false });
@@ -8628,6 +8797,7 @@
 
       processMobileInput(dt);
       updatePlatformWalk(dt);
+      updateDeparture(dt);
       updatePhysics(dt);
 
       // 차량 이동 애니메이션 (동서 왕복)

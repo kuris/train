@@ -3362,9 +3362,25 @@
     // ------------------------------------------------------------
 
     // 도시 지면: 균열/보도블럭 절차적 셰이더 (원경 안개 페이드 포함)
+    // ------------------------------------------------------------
+    // 도시 셰이더 공용 조명 유니폼
+    // 지면/잔디/도로/건물 파사드는 성능을 위해 씬 라이트를 받지 않는 커스텀
+    // ShaderMaterial이다. 그래서 밤 프리셋으로 바꿔도 대낮 밝기 그대로 남아
+    // 어두운 하늘과 따로 노는 문제가 있었다. 시간·날씨에 따른 밝기/색조를
+    // 여기서 직접 곱해준다. (여러 머티리얼이 같은 유니폼 객체를 공유하므로
+    // 값 한 번만 바꾸면 전부 반영된다)
+    const uCityLight = { value: new THREE.Color(1, 1, 1) };  // 도시 전반 조명 배율
+    const uWinLit    = { value: 0.14 };                      // 불 켜진 창 비율
+    const uCityFog   = {
+      color: { value: new THREE.Color(PALETTE.fog) },
+      near: { value: 450 },
+      far: { value: 4400 }
+    };
+
     const groundShader = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
+        uCityLight,
         uFogColor: { value: new THREE.Color(PALETTE.fog) },
         uFogNear: { value: 450 },
         uFogFar: { value: 4400 }
@@ -3388,6 +3404,7 @@
         uniform vec3 uFogColor;
         uniform float uFogNear;
         uniform float uFogFar;
+        uniform vec3 uCityLight;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main() {
           vec2 p = vWorldPos.xz;
@@ -3417,7 +3434,7 @@
 
           // 간접광 음영 (AO 효과 흉내)
           float ao = 0.88 + hash(floor(p * 0.05)) * 0.12;
-          vec3 finalGround = asphalt * ao;
+          vec3 finalGround = asphalt * ao * uCityLight;
 
           // 원경 안개 페이드
           float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
@@ -3432,6 +3449,7 @@
     const grassShader = new THREE.ShaderMaterial({
       uniforms: {
         uTime: { value: 0 },
+        uCityLight,
         uFogColor: { value: new THREE.Color(PALETTE.fog) },
         uFogNear: { value: 450 },
         uFogFar: { value: 4400 }
@@ -3452,6 +3470,7 @@
         uniform vec3 uFogColor;
         uniform float uFogNear;
         uniform float uFogFar;
+        uniform vec3 uCityLight;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main() {
           vec2 p = vWorldPos.xz;
@@ -3462,6 +3481,7 @@
           // 발자국 경로 (부드러운 소로)
           float path = step(0.48, fract(p.x / 6.0)) * step(fract(p.x / 6.0), 0.52);
           grass = mix(grass, vec3(0.42, 0.46, 0.33), path * 0.35);
+          grass *= uCityLight;
 
           // 원경 안개 페이드
           float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
@@ -3475,6 +3495,7 @@
     // 고속도로/도로 셰이더 (안개 페이드 포함)
     const highwayShader = new THREE.ShaderMaterial({
       uniforms: {
+        uCityLight,
         uFogColor: { value: new THREE.Color(PALETTE.fog) },
         uFogNear: { value: 450 },
         uFogFar: { value: 4400 }
@@ -3495,6 +3516,7 @@
         uniform vec3 uFogColor;
         uniform float uFogNear;
         uniform float uFogFar;
+        uniform vec3 uCityLight;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main() {
           vec2 p = vWorldPos.xz;
@@ -3507,6 +3529,7 @@
           // 가드레일 그림자선
           float rail = step(0.99, fract(p.x / 3.6 + 0.5)) ;
           road = mix(road, vec3(0.32, 0.32, 0.32), rail * 0.5);
+          road *= uCityLight;
 
           // 원경 안개 페이드
           float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
@@ -3556,6 +3579,7 @@
       side: THREE.DoubleSide,
       uniforms: {
         uTime: { value: 0 },
+        uCityLight,
         uFogColor: { value: new THREE.Color(PALETTE.fog) },
         uFogNear: { value: 450 },
         uFogFar: { value: 4400 }
@@ -3594,6 +3618,7 @@
         uniform vec3 uFogColor;
         uniform float uFogNear;
         uniform float uFogFar;
+        uniform vec3 uCityLight;
 
         void main() {
           // 풀잎 실루엣 테이퍼링 (끝으로 갈수록 좁아짐)
@@ -3602,7 +3627,7 @@
           if (shape > taper) discard;
 
           // 높이에 따른 그라디언트 (밑동은 흙빛/어두운 잎, 끝단은 밝은 억새/연녹색)
-          vec3 col = mix(vColor * 0.68, vColor * 1.15, vUv.y);
+          vec3 col = mix(vColor * 0.68, vColor * 1.15, vUv.y) * uCityLight;
 
           // 거리 안개 페이드 (원경은 부드럽게 대기 속으로 소멸)
           float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
@@ -4932,22 +4957,35 @@
     // ------------------------------------------------------------
     const aptShaderMat = new THREE.ShaderMaterial({
       uniforms: {
-        uSunDir: { value: sunLight.position.clone().normalize() }
+        uSunDir: { value: sunLight.position.clone().normalize() },
+        uCityLight,
+        uWinLit,
+        uFogColor: uCityFog.color,
+        uFogNear: uCityFog.near,
+        uFogFar: uCityFog.far
       },
       vertexShader: `
         varying vec3 vWorldPos;
         varying vec3 vNormal;
+        varying float vCamDist;
         void main() {
           vNormal = normalize(mat3(modelMatrix) * normal);
           vec4 wp = modelMatrix * vec4(position, 1.0);
           vWorldPos = wp.xyz;
+          vCamDist = length(cameraPosition.xz - wp.xz);
           gl_Position = projectionMatrix * viewMatrix * wp;
         }
       `,
       fragmentShader: `
         varying vec3 vWorldPos;
         varying vec3 vNormal;
+        varying float vCamDist;
         uniform vec3 uSunDir;
+        uniform vec3 uCityLight;
+        uniform float uWinLit;
+        uniform vec3 uFogColor;
+        uniform float uFogNear;
+        uniform float uFogFar;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
         void main() {
@@ -4979,15 +5017,17 @@
 
           bool isWindow = (inFloor > 0.18 && inFloor < 0.84) && (inCol > 0.15 && inCol < 0.85);
           vec3 col = wallColor;
+          float litMask = 0.0; // 1 = 실내 조명이 켜진 창 (밤에도 스스로 빛남)
 
           if (isWindow) {
             if (inFloor < 0.23 || inFloor > 0.79 || inCol < 0.20 || inCol > 0.80) {
               col = vec3(0.92, 0.93, 0.95);
             } else {
               float rnd = hash(vec2(floorId, colId));
-              if (rnd < 0.14) {
+              if (rnd < uWinLit) {
                 // 실내 웜 라이트 (은은한 백열등)
                 col = vec3(0.98, 0.90, 0.70);
+                litMask = 1.0;
               } else if (rnd < 0.45) {
                 // 창문 팔레트 1 (#5f8fa8)
                 col = vec3(0.37, 0.56, 0.66);
@@ -5022,8 +5062,15 @@
           }
 
           float diff = max(0.48, dot(vNormal, uSunDir) * 0.65 + 0.48);
-          col *= diff;
-          gl_FragColor = vec4(col, 1.0);
+          vec3 shaded = col * diff * uCityLight;   // 시간대 조명을 받는 외벽
+          vec3 glow = col * (0.92 + 0.08 * diff);  // 실내 조명이 켜진 창
+          vec3 outCol = mix(shaded, glow, litMask);
+
+          // 원경 안개 페이드
+          float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
+          outCol = mix(outCol, uFogColor, fogFactor);
+
+          gl_FragColor = vec4(outCol, 1.0);
         }
       `
     });
@@ -5130,21 +5177,36 @@
     // 다양한 파사드 셰이더: 유리 커튼월, 콘크리트 오피스, 벽돌 상가
     function makeFacadeShader(wallR, wallG, wallB, glassR, glassG, glassB) {
       return new THREE.ShaderMaterial({
-        uniforms: { uSunDir: { value: sunLight.position.clone().normalize() } },
+        uniforms: {
+          uSunDir: { value: sunLight.position.clone().normalize() },
+          uCityLight,
+          uWinLit,
+          uFogColor: uCityFog.color,
+          uFogNear: uCityFog.near,
+          uFogFar: uCityFog.far
+        },
         vertexShader: `
           varying vec3 vWorldPos;
           varying vec3 vNormal;
+          varying float vCamDist;
           void main() {
             vNormal = normalize(mat3(modelMatrix) * normal);
             vec4 wp = modelMatrix * vec4(position, 1.0);
             vWorldPos = wp.xyz;
+            vCamDist = length(cameraPosition.xz - wp.xz);
             gl_Position = projectionMatrix * viewMatrix * wp;
           }
         `,
         fragmentShader: `
           varying vec3 vWorldPos;
           varying vec3 vNormal;
+          varying float vCamDist;
           uniform vec3 uSunDir;
+          uniform vec3 uCityLight;
+          uniform float uWinLit;
+          uniform vec3 uFogColor;
+          uniform float uFogNear;
+          uniform float uFogFar;
           float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
           void main() {
             vec3 n = abs(vNormal);
@@ -5170,13 +5232,17 @@
             // 수직 기둥선
             if (inCol < 0.07 || inCol > 0.93) wall *= 0.85;
 
+            // 불 켜진 창은 주변 밝기와 무관하게 스스로 빛난다 (야간 도시 야경)
+            float litMask = 0.0;
+
             // 창문
             bool isWin = (inFloor > 0.13 && inFloor < 0.90) && (inCol > 0.10 && inCol < 0.90);
             if (isWin) {
               float rnd = hash(vec2(floorId, colId));
-              if (rnd < 0.14) {
+              if (rnd < uWinLit) {
                 // 불 켜진 창 (따뜻한 노란빛)
                 wall = vec3(1.0, 0.90, 0.65);
+                litMask = 1.0;
               } else {
                 // 반사 유리 (하늘 반영 + 살짝 청록)
                 wall = vec3(${glassR.toFixed(3)}, ${glassG.toFixed(3)}, ${glassB.toFixed(3)});
@@ -5190,7 +5256,16 @@
             }
 
             float diff = max(0.42, dot(vNormal, uSunDir) * 0.6 + 0.42);
-            gl_FragColor = vec4(wall * diff, 1.0);
+            vec3 shaded = wall * diff * uCityLight;   // 시간대 조명을 받는 외벽
+            vec3 glow = wall * (0.90 + 0.10 * diff);  // 실내 조명으로 빛나는 창
+            vec3 col = mix(shaded, glow, litMask);
+
+            // 원경 안개 페이드 (예전에는 파사드에만 안개가 없어 밤하늘 위에
+            // 대낮 건물이 오려붙인 것처럼 떠 보였다)
+            float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
+            col = mix(col, uFogColor, fogFactor);
+
+            gl_FragColor = vec4(col, 1.0);
           }
         `
       });
@@ -7125,6 +7200,8 @@
         hemiSky: 0xd8ebf8,
         hemiGround: 0x647482,
         hemiIntensity: 1.25,
+        cityLight: 0xfff5e8,   // 커스텀 도시 셰이더 밝기/색조 배율
+        winLit: 0.10,        // 불 켜진 창 비율
         waterSunCol: new THREE.Color(1.0, 0.94, 0.85),
         waterSkyCol: new THREE.Color(0.60, 0.74, 0.82),
         waterDeep: new THREE.Color(0.12, 0.28, 0.35),
@@ -7143,6 +7220,8 @@
         hemiSky: 0xdcebf5,
         hemiGround: 0x6c7c8a,
         hemiIntensity: 1.38,
+        cityLight: 0xffffff,   // 커스텀 도시 셰이더 밝기/색조 배율
+        winLit: 0.07,        // 불 켜진 창 비율
         waterSunCol: new THREE.Color(1.0, 0.98, 0.94),
         waterSkyCol: new THREE.Color(0.62, 0.77, 0.84),
         waterDeep: new THREE.Color(0.13, 0.30, 0.36),
@@ -7161,6 +7240,8 @@
         hemiSky: 0xf4a688,
         hemiGround: 0x52403a,
         hemiIntensity: 1.15,
+        cityLight: 0xffc799,   // 커스텀 도시 셰이더 밝기/색조 배율
+        winLit: 0.34,        // 불 켜진 창 비율
         waterSunCol: new THREE.Color(1.1, 0.65, 0.40),
         waterSkyCol: new THREE.Color(0.80, 0.52, 0.42),
         waterDeep: new THREE.Color(0.15, 0.12, 0.18),
@@ -7179,6 +7260,8 @@
         hemiSky: 0x22324a,
         hemiGround: 0x182432,
         hemiIntensity: 0.58,
+        cityLight: 0x333d57,   // 커스텀 도시 셰이더 밝기/색조 배율
+        winLit: 0.58,        // 불 켜진 창 비율
         waterSunCol: new THREE.Color(0.35, 0.50, 0.75),
         waterSkyCol: new THREE.Color(0.10, 0.16, 0.24),
         waterDeep: new THREE.Color(0.05, 0.09, 0.14),
@@ -7236,6 +7319,15 @@
         fogF = Math.min(fogF, 3400);
       }
 
+      // 커스텀 도시 셰이더(지면/건물/도로/잔디)는 씬 라이트를 안 받으므로
+      // 시간대 배율에 날씨 감광을 직접 곱해준다
+      const cityLight = new THREE.Color(tc.cityLight);
+      let winLit = tc.winLit;
+      if (weatherPreset === "cloudy")      { cityLight.multiplyScalar(0.80); winLit += 0.06; }
+      else if (weatherPreset === "rain")   { cityLight.multiplyScalar(0.60); winLit += 0.12; }
+      else if (weatherPreset === "fog")    { cityLight.multiplyScalar(0.70); winLit += 0.10; }
+      else if (weatherPreset === "snow")   { cityLight.multiplyScalar(0.84); winLit += 0.06; }
+
       const sp = SKY_UNIFORM_PRESETS[timePreset] || SKY_UNIFORM_PRESETS.morning;
       let cloudCover = sp.cloudBase;
       if (weatherPreset === "cloudy") cloudCover = 0.62;
@@ -7273,7 +7365,9 @@
         moon: sp.moon,
         cloudCover,
         cloudOpacity,
-        cloudTint
+        cloudTint,
+        cityLight,
+        winLit
       };
     }
 
@@ -7298,7 +7392,9 @@
         moon: L(a.moon, b.moon),
         cloudCover: L(a.cloudCover, b.cloudCover),
         cloudOpacity: L(a.cloudOpacity, b.cloudOpacity),
-        cloudTint: C(a.cloudTint, b.cloudTint)
+        cloudTint: C(a.cloudTint, b.cloudTint),
+        cityLight: C(a.cityLight, b.cityLight),
+        winLit: L(a.winLit, b.winLit)
       };
     }
 
@@ -7348,6 +7444,13 @@
         waterUniforms.uFogNear.value = v.fogN;
         waterUniforms.uFogFar.value = v.fogF;
       }
+
+      // 커스텀 도시 셰이더 조명 (지면·잔디·도로·억새·건물 파사드 공용)
+      uCityLight.value.copy(v.cityLight);
+      uWinLit.value = v.winLit;
+      uCityFog.color.value.copy(v.skyCol);
+      uCityFog.near.value = v.fogN;
+      uCityFog.far.value = v.fogF;
 
       // 지면, 잔디, 도로, 둔치 억새 셰이더의 Fog 유니폼 동기화
       [groundShader, grassShader, highwayShader, grassBladeShader].forEach(s => {

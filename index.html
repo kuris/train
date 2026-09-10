@@ -1041,6 +1041,78 @@
       }
     }
 
+    /* ============================================================
+       구경 모드: 5초 무입력 시 인터페이스 전체를 숨기고 풍경만 남긴다.
+       (열차는 계속 주행 / 아무 입력이나 들어오면 즉시 복귀)
+       ============================================================ */
+    #card-station,
+    #card-mission,
+    #card-time,
+    #env-control-bar,
+    #btn-wx-panel,
+    #card-align-hud,
+    #top-guidance,
+    #action-hint,
+    #passenger-footer,
+    #bottom-dash,
+    #mobile-action-bar,
+    #mob-view-fab,
+    #mob-drive-btns,
+    .joystick-zone {
+      transition: opacity 0.55s ease, visibility 0.55s ease;
+    }
+
+    body.sightseeing #card-station,
+    body.sightseeing #card-mission,
+    body.sightseeing #card-time,
+    body.sightseeing #env-control-bar,
+    body.sightseeing #btn-wx-panel,
+    body.sightseeing #card-align-hud,
+    body.sightseeing #top-guidance,
+    body.sightseeing #action-hint,
+    body.sightseeing #passenger-footer,
+    body.sightseeing #bottom-dash,
+    body.sightseeing #mobile-action-bar,
+    body.sightseeing #mob-view-fab,
+    body.sightseeing #mob-drive-btns,
+    body.sightseeing .joystick-zone {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+
+    /* 구경 모드 진입 직후 잠깐만 뜨는 안내 배지 */
+    #sightseeing-badge {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: calc(var(--tui-edge) + var(--sa-b) + 6px);
+      z-index: 40;
+      padding: 5px 14px;
+      border-radius: 999px;
+      background: rgba(8, 14, 26, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(10px);
+      color: rgba(226, 232, 240, 0.72);
+      font-size: clamp(9px, 1.5vmin, 12px);
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    body.sightseeing #sightseeing-badge {
+      animation: sightseeHint 3.4s ease forwards;
+    }
+
+    @keyframes sightseeHint {
+      0%   { opacity: 0; }
+      18%  { opacity: 1; }
+      70%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
     /* 터치 피드백 오버레이 */
     .touch-ripple {
       position: fixed;
@@ -1501,6 +1573,8 @@
   </div>
 
   <!-- 시작 인트로 모달 -->
+  <div id="sightseeing-badge">구경 모드 · 화면을 터치하면 조작 UI가 돌아옵니다</div>
+
   <div id="intro">
     <div id="intro-card">
       <div style="font-size:12px; font-weight:800; color:var(--ui-green); letter-spacing:1px; margin-bottom:8px;">HAN RIVER LINE · 한강선</div>
@@ -3118,6 +3192,15 @@
       return v;
     }
 
+    // 바퀴 메시를 생성 시 한 번만 수집 (매 프레임 geometry.type 문자열 비교 제거)
+    function collectWheels(v) {
+      const out = [];
+      v.children.forEach(c => {
+        if (c.geometry && c.geometry.type === "CylinderGeometry") out.push(c);
+      });
+      return out;
+    }
+
     // 남단 올림픽대로 (동서 방향, Z=635)
     const southLaneZ = 635;
     const northLaneZ = -615;
@@ -3128,7 +3211,7 @@
       v.position.set(startX, 4.55, southLaneZ + (rng() - 0.5) * 22);
       v.rotation.y = Math.PI / 2; // 동쪽 진행
       vehicleGroup.add(v);
-      vehicles.push({ mesh: v, speed: 18 + rng() * 22, dir: 1, laneZ: southLaneZ + (rng() > 0.5 ? -10 : 8), type });
+      vehicles.push({ mesh: v, speed: 18 + rng() * 22, dir: 1, laneZ: southLaneZ + (rng() > 0.5 ? -10 : 8), type, wheels: collectWheels(v) });
     }
     // 북단 강변북로
     for (let i = 0; i < 16; i++) {
@@ -3138,7 +3221,7 @@
       v.position.set(startX, 4.55, northLaneZ + (rng() - 0.5) * 22);
       v.rotation.y = -Math.PI / 2; // 서쪽 진행
       vehicleGroup.add(v);
-      vehicles.push({ mesh: v, speed: 16 + rng() * 24, dir: -1, laneZ: northLaneZ + (rng() > 0.5 ? -8 : 10), type });
+      vehicles.push({ mesh: v, speed: 16 + rng() * 24, dir: -1, laneZ: northLaneZ + (rng() > 0.5 ? -8 : 10), type, wheels: collectWheels(v) });
     }
     scene.add(vehicleGroup);
     window._vehicles = vehicles;
@@ -5745,9 +5828,14 @@
     updateWxStatusBar();
     applyWxSliders();
 
+    // 인트로 표시 여부 (CSS로 숨겨진 빌드에서는 inline style이 ""이므로 계산값으로 판단)
+    let introVisible = getComputedStyle(intro).display !== "none";
+    window.isIntroVisible = () => introVisible;
+
     function dismissIntro() {
-      if (intro.style.display !== "none") {
+      if (introVisible || intro.style.display !== "none") {
         intro.style.display = "none";
+        introVisible = false;
         started = true;
         audio.init();
       }
@@ -6190,6 +6278,59 @@
     // 초기 모바일 UI 상태
     updateMobDriveUI();
 
+    // ============================================================
+    // 구경 모드: 5초간 입력이 없으면 인터페이스 전체를 감춘다.
+    // 아무 입력(터치/클릭/키/휠/조이스틱 유지)이 들어오면 즉시 복귀.
+    // ============================================================
+    const SIGHTSEEING_IDLE_MS = 5000;
+    let lastActivityAt = performance.now();
+    let sightseeingOn = false;
+
+    function setSightseeing(on) {
+      if (sightseeingOn === on) return;
+      sightseeingOn = on;
+      document.body.classList.toggle("sightseeing", on);
+    }
+
+    function markActivity() {
+      lastActivityAt = performance.now();
+      if (sightseeingOn) setSightseeing(false);
+    }
+    window.markActivity = markActivity;
+
+    ["pointerdown", "pointermove", "pointerup", "wheel", "keydown", "keyup",
+     "touchstart", "touchmove", "click"].forEach(ev => {
+      window.addEventListener(ev, markActivity, { passive: true, capture: true });
+    });
+
+    function updateSightseeing() {
+      // 인트로가 떠 있는 동안은 구경 모드로 넘어가지 않는다
+      if (window.isIntroVisible && window.isIntroVisible()) {
+        lastActivityAt = performance.now();
+        return;
+      }
+      // 조이스틱을 꺾은 채 손가락을 멈추면 이벤트가 끊기므로 입력 상태도 함께 본다
+      if (Math.abs(joyMove.x) > 0.05 || Math.abs(joyMove.y) > 0.05 ||
+          Math.abs(joyLook.x) > 0.05 || Math.abs(joyLook.y) > 0.05) {
+        lastActivityAt = performance.now();
+        if (sightseeingOn) setSightseeing(false);
+        return;
+      }
+      const kb = window._kbKeys;
+      if (kb) {
+        for (const k in kb) {
+          if (kb[k]) {
+            lastActivityAt = performance.now();
+            if (sightseeingOn) setSightseeing(false);
+            return;
+          }
+        }
+      }
+      if (!sightseeingOn && performance.now() - lastActivityAt > SIGHTSEEING_IDLE_MS) {
+        setSightseeing(true);
+      }
+    }
+
     // ------------------------------------------------------------
     // 13. 메인 렌더 루프
     // ------------------------------------------------------------
@@ -6238,13 +6379,10 @@
           if (v.dir > 0 && v.mesh.position.x > 1600) v.mesh.position.x = -1500;
           if (v.dir < 0 && v.mesh.position.x < -1500) v.mesh.position.x = 1600;
           v.mesh.position.z = v.laneZ;
-          // 바퀴 회전 (자동차만)
-          if (v.type === 'car') {
-            v.mesh.children.forEach(c => {
-              if (c.geometry && c.geometry.type === 'CylinderGeometry') {
-                c.rotation.x += v.dir * v.speed * dt * 0.8;
-              }
-            });
+          // 바퀴 회전 (자동차만, 생성 시 캐시된 배열 사용)
+          if (v.type === 'car' && v.wheels) {
+            const spin = v.dir * v.speed * dt * 0.8;
+            for (let w = 0; w < v.wheels.length; w++) v.wheels[w].rotation.x += spin;
           }
         });
       }
@@ -6314,6 +6452,9 @@
 
       // 절차적 바람 소리 실시간 갱신
       audio.updateWind(dt, time);
+
+      // 5초 무입력 -> 구경 모드
+      updateSightseeing();
 
       composer.render();
     }

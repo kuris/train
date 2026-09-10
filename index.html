@@ -3715,35 +3715,71 @@
     const rng = (seed => () => { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return ((seed >>> 0) / 0xffffffff); })(12345);
 
     // ------------------------------------------------------------
+    // 선로 이격 거리 안전 검사 (선로 투영 반경 35m 내 수목/관목 침범 완전 자동 방지)
+    // ------------------------------------------------------------
+    const _trackCheckPoints = [];
+    const _CHK_SAMPLES = 500;
+    for (let i = 0; i < _CHK_SAMPLES; i++) {
+      const pt = routeCurve.getPoint(i / _CHK_SAMPLES);
+      _trackCheckPoints.push(new THREE.Vector2(pt.x, pt.z));
+    }
+    function isTooCloseToTrack(x, z, minDist = 35) {
+      const p = new THREE.Vector2(x, z);
+      const minDistSq = minDist * minDist;
+      for (let i = 0; i < _trackCheckPoints.length; i++) {
+        if (p.distanceToSquared(_trackCheckPoints[i]) < minDistSq) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // ------------------------------------------------------------
     // 1. 강변북로 및 올림픽대로 완충 녹지 가로수길 (Highway Avenue Trees)
     // ------------------------------------------------------------
     // 남단 올림픽대로 녹지대 (Z = 608 ~ 618)
     for (let x = -1350; x <= 1750; x += 26) {
-      const tType = (rng() > 0.45) ? 2 : 0; // 메타세쿼이아 55%, 느티나무 45%
-      const sc = 1.15 + rng() * 0.35;
-      const t = makeProcTree(tType, sc);
-      t.position.set(x + rng() * 6 - 3, 4.5, 610 + rng() * 10 - 5);
-      t.rotation.y = rng() * Math.PI * 2;
-      treeGroup.add(t);
+      const tx = x + rng() * 6 - 3;
+      const tz = 610 + rng() * 10 - 5;
+      if (!isTooCloseToTrack(tx, tz, 35)) {
+        const tType = (rng() > 0.45) ? 2 : 0; // 메타세쿼이아 55%, 느티나무 45%
+        const sc = 1.15 + rng() * 0.35;
+        const t = makeProcTree(tType, sc);
+        t.position.set(tx, 4.5, tz);
+        t.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t);
+      }
 
       // 가로수 하부 덤불
-      const b = makeBush(0.75 + rng() * 0.4);
-      b.position.set(x + 13, 4.5, 610 + rng() * 6 - 3);
-      treeGroup.add(b);
+      const bx = x + 13;
+      const bz = 610 + rng() * 6 - 3;
+      if (!isTooCloseToTrack(bx, bz, 25)) {
+        const b = makeBush(0.75 + rng() * 0.4);
+        b.position.set(bx, 4.5, bz);
+        treeGroup.add(b);
+      }
     }
 
     // 북단 강변북로 녹지대 (Z = -600 ~ -610)
     for (let x = -1350; x <= 1750; x += 26) {
-      const tType = (rng() > 0.45) ? 2 : 0;
-      const sc = 1.15 + rng() * 0.35;
-      const t = makeProcTree(tType, sc);
-      t.position.set(x + rng() * 6 - 3, 4.5, -605 + rng() * 10 - 5);
-      t.rotation.y = rng() * Math.PI * 2;
-      treeGroup.add(t);
+      const tx = x + rng() * 6 - 3;
+      const tz = -605 + rng() * 10 - 5;
+      if (!isTooCloseToTrack(tx, tz, 35)) {
+        const tType = (rng() > 0.45) ? 2 : 0;
+        const sc = 1.15 + rng() * 0.35;
+        const t = makeProcTree(tType, sc);
+        t.position.set(tx, 4.5, tz);
+        t.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t);
+      }
 
-      const b = makeBush(0.75 + rng() * 0.4);
-      b.position.set(x + 13, 4.5, -605 + rng() * 6 - 3);
-      treeGroup.add(b);
+      const bx = x + 13;
+      const bz = -605 + rng() * 6 - 3;
+      if (!isTooCloseToTrack(bx, bz, 25)) {
+        const b = makeBush(0.75 + rng() * 0.4);
+        b.position.set(bx, 4.5, bz);
+        treeGroup.add(b);
+      }
     }
 
     // ------------------------------------------------------------
@@ -3755,17 +3791,24 @@
       const numInGrove = 2 + Math.floor(rng() * 2);
       const centerZ = 535 + rng() * 18 - 9;
       for (let k = 0; k < numInGrove; k++) {
-        const tType = [0, 3, 4][Math.floor(rng() * 3)]; // 느티나무, 은행나무, 소나무
-        const sc = 1.05 + rng() * 0.4;
-        const t = makeProcTree(tType, sc);
-        t.position.set(x + (k - 1) * 14 + rng() * 8, 4.5, centerZ + rng() * 12 - 6);
-        t.rotation.y = rng() * Math.PI * 2;
-        treeGroup.add(t);
+        const tx = x + (k - 1) * 14 + rng() * 8;
+        const tz = centerZ + rng() * 12 - 6;
+        if (!isTooCloseToTrack(tx, tz, 35)) {
+          const tType = [0, 3, 4][Math.floor(rng() * 3)]; // 느티나무, 은행나무, 소나무
+          const sc = 1.05 + rng() * 0.4;
+          const t = makeProcTree(tType, sc);
+          t.position.set(tx, 4.5, tz);
+          t.rotation.y = rng() * Math.PI * 2;
+          treeGroup.add(t);
+        }
       }
       // 군락 하부 관목 화단
-      const b = makeBush(0.9 + rng() * 0.5);
-      b.position.set(x + rng() * 8, 4.5, centerZ);
-      treeGroup.add(b);
+      const bx = x + rng() * 8;
+      if (!isTooCloseToTrack(bx, centerZ, 25)) {
+        const b = makeBush(0.9 + rng() * 0.5);
+        b.position.set(bx, 4.5, centerZ);
+        treeGroup.add(b);
+      }
     }
 
     // 북단 뚝섬 한강공원 (Z: -515 ~ -555)
@@ -3773,16 +3816,23 @@
       const numInGrove = 2 + Math.floor(rng() * 2);
       const centerZ = -535 + rng() * 18 - 9;
       for (let k = 0; k < numInGrove; k++) {
-        const tType = [0, 3, 4][Math.floor(rng() * 3)];
-        const sc = 1.05 + rng() * 0.4;
-        const t = makeProcTree(tType, sc);
-        t.position.set(x + (k - 1) * 14 + rng() * 8, 4.5, centerZ + rng() * 12 - 6);
-        t.rotation.y = rng() * Math.PI * 2;
-        treeGroup.add(t);
+        const tx = x + (k - 1) * 14 + rng() * 8;
+        const tz = centerZ + rng() * 12 - 6;
+        if (!isTooCloseToTrack(tx, tz, 35)) {
+          const tType = [0, 3, 4][Math.floor(rng() * 3)];
+          const sc = 1.05 + rng() * 0.4;
+          const t = makeProcTree(tType, sc);
+          t.position.set(tx, 4.5, tz);
+          t.rotation.y = rng() * Math.PI * 2;
+          treeGroup.add(t);
+        }
       }
-      const b = makeBush(0.9 + rng() * 0.5);
-      b.position.set(x + rng() * 8, 4.5, centerZ);
-      treeGroup.add(b);
+      const bx = x + rng() * 8;
+      if (!isTooCloseToTrack(bx, centerZ, 25)) {
+        const b = makeBush(0.9 + rng() * 0.5);
+        b.position.set(bx, 4.5, centerZ);
+        treeGroup.add(b);
+      }
     }
 
     // ------------------------------------------------------------
@@ -3790,32 +3840,48 @@
     // ------------------------------------------------------------
     // 남단 수변 (Z: 468 ~ 478)
     for (let x = -1150; x <= 1550; x += 48) {
-      const isWillow = rng() > 0.35;
-      const tType = isWillow ? 1 : 4; // 수양버들 65%, 소나무 35%
-      const sc = 1.1 + rng() * 0.35;
-      const t = makeProcTree(tType, sc);
-      t.position.set(x + rng() * 12 - 6, 4.5, 472 + rng() * 8 - 4);
-      t.rotation.y = rng() * Math.PI * 2;
-      treeGroup.add(t);
+      const tx = x + rng() * 12 - 6;
+      const tz = 472 + rng() * 8 - 4;
+      if (!isTooCloseToTrack(tx, tz, 35)) {
+        const isWillow = rng() > 0.35;
+        const tType = isWillow ? 1 : 4; // 수양버들 65%, 소나무 35%
+        const sc = 1.1 + rng() * 0.35;
+        const t = makeProcTree(tType, sc);
+        t.position.set(tx, 4.5, tz);
+        t.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t);
+      }
 
-      const b = makeBush(0.8 + rng() * 0.3);
-      b.position.set(x + 12, 4.5, 472);
-      treeGroup.add(b);
+      const bx = x + 12;
+      const bz = 472;
+      if (!isTooCloseToTrack(bx, bz, 25)) {
+        const b = makeBush(0.8 + rng() * 0.3);
+        b.position.set(bx, 4.5, bz);
+        treeGroup.add(b);
+      }
     }
 
     // 북단 수변 (Z: -468 ~ -478)
     for (let x = -1150; x <= 1550; x += 48) {
-      const isWillow = rng() > 0.35;
-      const tType = isWillow ? 1 : 4;
-      const sc = 1.1 + rng() * 0.35;
-      const t = makeProcTree(tType, sc);
-      t.position.set(x + rng() * 12 - 6, 4.5, -472 + rng() * 8 - 4);
-      t.rotation.y = rng() * Math.PI * 2;
-      treeGroup.add(t);
+      const tx = x + rng() * 12 - 6;
+      const tz = -472 + rng() * 8 - 4;
+      if (!isTooCloseToTrack(tx, tz, 35)) {
+        const isWillow = rng() > 0.35;
+        const tType = isWillow ? 1 : 4;
+        const sc = 1.1 + rng() * 0.35;
+        const t = makeProcTree(tType, sc);
+        t.position.set(tx, 4.5, tz);
+        t.rotation.y = rng() * Math.PI * 2;
+        treeGroup.add(t);
+      }
 
-      const b = makeBush(0.8 + rng() * 0.3);
-      b.position.set(x + 12, 4.5, -472);
-      treeGroup.add(b);
+      const bx = x + 12;
+      const bz = -472;
+      if (!isTooCloseToTrack(bx, bz, 25)) {
+        const b = makeBush(0.8 + rng() * 0.3);
+        b.position.set(bx, 4.5, bz);
+        treeGroup.add(b);
+      }
     }
 
     // GPU InstancedMesh로 수목 메시 전량 자동 인스턴싱 베이크 (단일/극소 드로우콜 유지)

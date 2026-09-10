@@ -5778,7 +5778,7 @@
       return interior;
     }
 
-    function buildSeoulMetroCarExterior(isLeading, isPassengerCar, carIdx) {
+    function buildSeoulMetroCarExterior(isLeading, carIdx) {
       const carGroup = new THREE.Group();
 
       // 서울 2호선 정통 스테인리스 스틸 실버 & 비비드 그린 라인
@@ -5787,6 +5787,8 @@
       const matInteriorWall = new THREE.MeshStandardMaterial({ color: 0xeef2f7, roughness: 0.45 });
       const matGreenStripe = new THREE.MeshStandardMaterial({ color: PALETTE.trainLine, roughness: 0.4 });
       const matDarkGlass = new THREE.MeshStandardMaterial({ color: 0x426e7e, roughness: 0.12, metalness: 0.35, transparent: true, opacity: 0.52 });
+      // 대형 승객 창문: 실내 1인칭 시점에서 밖이 또렷하게 보이도록 옅게 틴트
+      const matWindowGlass = new THREE.MeshStandardMaterial({ color: 0x9dc2d6, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.18, depthWrite: false });
       const matDoorRubber = new THREE.MeshBasicMaterial({ color: PALETTE.trainDark });
       const matDoorYellow = new THREE.MeshBasicMaterial({ color: 0xeab308 }); // 도어 안전 경고 노란선
       const matDoorLamp = new THREE.MeshBasicMaterial({ color: 0xf59e0b }); // 도어 개폐 주황 램프
@@ -5805,116 +5807,140 @@
       carShadow.position.set(0, -0.42, 0);
       carGroup.add(carShadow);
 
-      if (!isPassengerCar) {
-        // 일반 객차 외벽 (좌우/천장/바닥)
-        const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.82, 23.5), matBody);
-        wallL.position.set(-1.51, 1.41, 0);
-        carGroup.add(wallL);
+      // ------------------------------------------------------------
+      // 차체 외벽: 10량 전량 동일 구조.
+      // 예전에는 3호차만 창문 높이 벽을 통째로 비운 "파노라마 객차"였고
+      // 나머지 9량은 창문 자리까지 통짜 벽이라, 다른 호차에 타면 1인칭
+      // 시점에서 창밖이 전혀 보이지 않았다. 이제 모든 객차의 창문 구간을
+      // 실제로 뚫고 유리만 끼워, 어느 호차에서든 밖이 보인다.
+      // ------------------------------------------------------------
+      const CAR_LEN = 23.5;      // 차체 길이
+      const WALL_X = 1.51;       // 측벽 중심 X
+      const WALL_TOP = 2.82;     // 측벽 상단 (바닥 기준)
+      // 착석 시선(y=1.25) · 기립 시선(y=1.68)이 모두 창 안에 들어오도록 실제
+      // 지하철 창문 높이(허리~머리 위)로 잡는다. 예전 값은 눈높이보다 위였다.
+      const WIN_Y0 = 0.92;       // 창문 개구부 하단 (창턱)
+      const WIN_Y1 = 2.00;       // 창문 개구부 상단
+      const WIN_Z = [-5.2, 0.0, 5.2]; // 대형 창문 중심
+      const WIN_LEN = 2.4;       // 창문 길이
+      const DOOR_Z = [-7.8, -2.6, 2.6, 7.8];
 
-        const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.82, 23.5), matBody);
-        wallR.position.set(1.51, 1.41, 0);
-        carGroup.add(wallR);
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.12, CAR_LEN), matBody);
+      roof.position.set(0, 2.76, 0);
+      carGroup.add(roof);
 
-        const roof = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.12, 23.5), matBody);
-        roof.position.set(0, 2.76, 0);
-        carGroup.add(roof);
+      const floorBase = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.12, CAR_LEN), matBody);
+      floorBase.position.set(0, 0.06, 0);
+      carGroup.add(floorBase);
 
-        const floorBase = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.12, 23.5), matBody);
-        floorBase.position.set(0, 0.06, 0);
-        carGroup.add(floorBase);
+      // 단부 벽 (중앙 통로 개방형 - 객차간 이동 통로)
+      [-11.7, 11.7].forEach(ez => {
+        const endL = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.82, 0.1), matBody);
+        endL.position.set(-1.18, 1.41, ez);
+        carGroup.add(endL);
 
-        // 단부 벽 (중앙 통로 개방형)
-        [-11.7, 11.7].forEach(ez => {
-          const endL = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.82, 0.1), matBody);
-          endL.position.set(-1.18, 1.41, ez);
-          carGroup.add(endL);
+        const endR = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.82, 0.1), matBody);
+        endR.position.set(1.18, 1.41, ez);
+        carGroup.add(endR);
 
-          const endR = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.82, 0.1), matBody);
-          endR.position.set(1.18, 1.41, ez);
-          carGroup.add(endR);
+        const endTop = new THREE.Mesh(new THREE.BoxGeometry(1.71, 0.35, 0.1), matBody);
+        endTop.position.set(0, 2.645, ez);
+        carGroup.add(endTop);
+      });
 
-          const endTop = new THREE.Mesh(new THREE.BoxGeometry(1.71, 0.35, 0.1), matBody);
-          endTop.position.set(0, 2.645, ez);
-          carGroup.add(endTop);
+      [-WALL_X, WALL_X].forEach(sx => {
+        const sgn = Math.sign(sx);
+
+        // 창문 아래쪽 외벽 (허리판)
+        const wallLower = new THREE.Mesh(new THREE.BoxGeometry(0.12, WIN_Y0, CAR_LEN), matBody);
+        wallLower.position.set(sx, WIN_Y0 / 2, 0);
+        carGroup.add(wallLower);
+
+        // 창문 위쪽 외벽 (갓판)
+        const upperH = WALL_TOP - WIN_Y1;
+        const wallUpper = new THREE.Mesh(new THREE.BoxGeometry(0.12, upperH, CAR_LEN), matBody);
+        wallUpper.position.set(sx, WIN_Y1 + upperH / 2, 0);
+        carGroup.add(wallUpper);
+
+        // 창문 높이 구간은 개구부를 제외한 부분(창간벽)만 채운다
+        const winH = WIN_Y1 - WIN_Y0;
+        const winY = (WIN_Y0 + WIN_Y1) / 2;
+        const addPier = (z0, z1) => {
+          const len = z1 - z0;
+          if (len <= 0.01) return;
+          const pier = new THREE.Mesh(new THREE.BoxGeometry(0.12, winH, len), matBody);
+          pier.position.set(sx, winY, (z0 + z1) / 2);
+          carGroup.add(pier);
+        };
+        let cursor = -CAR_LEN / 2;
+        WIN_Z.forEach(wz => {
+          addPier(cursor, wz - WIN_LEN / 2);
+          cursor = wz + WIN_LEN / 2;
+        });
+        addPier(cursor, CAR_LEN / 2);
+
+        // 개구부에 끼우는 유리 (실내에서 밖이 보이도록 옅은 틴트)
+        WIN_Z.forEach(wz => {
+          const win = new THREE.Mesh(new THREE.BoxGeometry(0.06, winH - 0.04, WIN_LEN - 0.04), matWindowGlass);
+          win.position.set(sx, winY, wz);
+          carGroup.add(win);
+
+          // 창틀 (개구부 테두리)
+          const frameTop = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, WIN_LEN), matStainlessBead);
+          frameTop.position.set(sx, WIN_Y1 - 0.03, wz);
+          carGroup.add(frameTop);
+
+          const frameBot = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, WIN_LEN), matStainlessBead);
+          frameBot.position.set(sx, WIN_Y0 + 0.03, wz);
+          carGroup.add(frameBot);
         });
 
-        // 2호선 시그니처 초록 띠 (측면 상단 & 중앙)
-        [-1.59, 1.59].forEach(sx => {
-          const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.36, 23.5), matGreenStripe);
-          stripe.position.set(sx, 1.35, 0);
-          carGroup.add(stripe);
+        // 2호선 시그니처 초록 띠 (창턱 바로 아래 허리 띠 & 상단 얇은 띠)
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.32, CAR_LEN), matGreenStripe);
+        stripe.position.set(sx + sgn * 0.08, 0.72, 0);
+        carGroup.add(stripe);
 
-          const thinStripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 23.5), matGreenStripe);
-          thinStripe.position.set(sx, 2.72, 0);
-          carGroup.add(thinStripe);
+        const thinStripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, CAR_LEN), matGreenStripe);
+        thinStripe.position.set(sx + sgn * 0.08, 2.72, 0);
+        carGroup.add(thinStripe);
 
-          // 스테인리스 차체 3열 비드 주름 (Bead Corrugation)
-          [-0.14, 0.0, 0.14].forEach(by => {
-            const bead = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, 23.4), matStainlessBead);
-            bead.position.set(sx + Math.sign(sx) * 0.015, 0.72 + by, 0);
-            carGroup.add(bead);
-          });
-
-          // 측면 4개 출입문 세부 표현 (도어 틈새, 창문, 노란 안전띠, 상단 작동 램프)
-          [-7.8, -2.6, 2.6, 7.8].forEach(dz => {
-            const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.1, 1.4), matDoorRubber);
-            doorFrame.position.set(sx + Math.sign(sx) * 0.01, 1.25, dz);
-            carGroup.add(doorFrame);
-
-            // 도어 창문 2개
-            [-0.32, 0.32].forEach(dwx => {
-              const dWin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.42), matDarkGlass);
-              dWin.position.set(sx + Math.sign(sx) * 0.02, 1.45, dz + dwx);
-              carGroup.add(dWin);
-            });
-
-            // 출입문 중앙 노란색 안전 경고 라인
-            const dLine = new THREE.Mesh(new THREE.BoxGeometry(0.065, 1.9, 0.04), matDoorYellow);
-            dLine.position.set(sx + Math.sign(sx) * 0.02, 1.25, dz);
-            carGroup.add(dLine);
-
-            // 출입문 상단 작동 표시등 (Amber Lamp)
-            const dLamp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.12), matDoorLamp);
-            dLamp.position.set(sx + Math.sign(sx) * 0.02, 2.38, dz);
-            carGroup.add(dLamp);
-          });
-
-          // 승객 대형 창문들
-          [-5.2, 0.0, 5.2].forEach(wz => {
-            const win = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.96, 2.4), matDarkGlass);
-            win.position.set(sx, 1.85, wz);
-            carGroup.add(win);
-          });
-
-          // 측면 LED 행선안내기 [2호선 순환 | LINE 2]
-          const ledBoard = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.18), matLedAmber);
-          ledBoard.position.set(sx + Math.sign(sx) * 0.03, 2.48, 0);
-          if (sx < 0) ledBoard.rotation.y = -Math.PI / 2;
-          else ledBoard.rotation.y = Math.PI / 2;
-          carGroup.add(ledBoard);
+        // 스테인리스 차체 3열 비드 주름 (Bead Corrugation)
+        [-0.11, 0.0, 0.11].forEach(by => {
+          const bead = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.04, CAR_LEN - 0.1), matStainlessBead);
+          bead.position.set(sx + sgn * 0.075, 0.34 + by, 0);
+          carGroup.add(bead);
         });
-      } else {
-        // 3호차 파노라마 승객차 외벽 (창밖 조망 극대화 & 밝고 깨끗한 실내 벽면)
-        const wallLowerL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 23.5), matInteriorWall);
-        wallLowerL.position.set(-1.52, 0.375, 0);
-        carGroup.add(wallLowerL);
 
-        const wallLowerR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 23.5), matInteriorWall);
-        wallLowerR.position.set(1.52, 0.23, 0);
-        carGroup.add(wallLowerR);
+        // 측면 4개 출입문 (도어 틈새, 창문, 노란 안전띠, 상단 작동 램프)
+        DOOR_Z.forEach(dz => {
+          const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.05, 2.1, 1.4), matDoorRubber);
+          doorFrame.position.set(sx + sgn * 0.07, 1.25, dz);
+          carGroup.add(doorFrame);
 
-        const wallUpperL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 23.5), matInteriorWall);
-        wallUpperL.position.set(-1.52, 2.19, 0);
-        carGroup.add(wallUpperL);
+          // 도어 창문 2개
+          [-0.32, 0.32].forEach(dwx => {
+            const dWin = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.9, 0.42), matDarkGlass);
+            dWin.position.set(sx + sgn * 0.08, 1.45, dz + dwx);
+            carGroup.add(dWin);
+          });
 
-        const wallUpperR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.36, 23.5), matInteriorWall);
-        wallUpperR.position.set(1.52, 2.22, 0);
-        carGroup.add(wallUpperR);
+          // 출입문 중앙 노란색 안전 경고 라인
+          const dLine = new THREE.Mesh(new THREE.BoxGeometry(0.065, 1.9, 0.04), matDoorYellow);
+          dLine.position.set(sx + sgn * 0.08, 1.25, dz);
+          carGroup.add(dLine);
 
-        const stripeR = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.30, 23.5), matGreenStripe);
-        stripeR.position.set(1.58, 0.31, 0);
-        carGroup.add(stripeR);
-      }
+          // 출입문 상단 작동 표시등 (Amber Lamp)
+          const dLamp = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.12), matDoorLamp);
+          dLamp.position.set(sx + sgn * 0.08, 2.38, dz);
+          carGroup.add(dLamp);
+        });
+
+        // 측면 LED 행선안내기 [2호선 순환 | LINE 2]
+        const ledBoard = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.18), matLedAmber);
+        ledBoard.position.set(sx + sgn * 0.09, 2.48, 0);
+        ledBoard.rotation.y = sgn < 0 ? -Math.PI / 2 : Math.PI / 2;
+        carGroup.add(ledBoard);
+      });
 
       // 지붕 위 냉난방 공조기(HVAC) 유닛 2세트 & 에어 루버
       [-5.5, 5.5].forEach(hz => {
@@ -6001,36 +6027,28 @@
           carGroup.add(airSpring);
         });
 
-        // 4개의 강철 차륜 (승객차 3호차에서는 실내 바닥 튀어나옴 방지를 위해 차체 밑에만 안전하게 배치)
-        if (!isPassengerCar) {
+        // 4개의 강철 차륜 (10량 전량 장착.
+        // 차륜 상단이 실내 바닥(y=0.12)을 뚫고 올라오지 않도록 중심을 -0.30으로 내려
+        // 하단이 정확히 레일면(y=-0.72)에 닿게 한다)
+        {
           [-1.0, 1.0].forEach(wz => {
             [-1.25, 1.25].forEach(wx => {
               const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.18, 16), matWheel);
               wheel.rotation.z = Math.PI / 2;
-              wheel.position.set(wx, -0.22, bz + wz);
+              wheel.position.set(wx, -0.30, bz + wz);
               carGroup.add(wheel);
 
               // 벤틸레이티드 브레이크 디스크
               const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.04, 16), matBrakeDisc);
               disc.rotation.z = Math.PI / 2;
-              disc.position.set(wx + (wx > 0 ? 0.08 : -0.08), -0.22, bz + wz);
+              disc.position.set(wx + (wx > 0 ? 0.08 : -0.08), -0.30, bz + wz);
               carGroup.add(disc);
 
               // 휠 플랜지 림
               const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.04, 16), matWheel);
               flange.rotation.z = Math.PI / 2;
-              flange.position.set(wx + (wx > 0 ? -0.09 : 0.09), -0.22, bz + wz);
+              flange.position.set(wx + (wx > 0 ? -0.09 : 0.09), -0.30, bz + wz);
               carGroup.add(flange);
-            });
-          });
-        } else {
-          // 승객 3호차: 바닥(y=0) 아래에 완전히 숨겨진 안전 대차 바퀴
-          [-1.0, 1.0].forEach(wz => {
-            [-1.25, 1.25].forEach(wx => {
-              const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.18, 16), matWheel);
-              wheel.rotation.z = Math.PI / 2;
-              wheel.position.set(wx, -0.42, bz + wz);
-              carGroup.add(wheel);
             });
           });
         }
@@ -6143,8 +6161,7 @@
     for (let i = 0; i < NUM_CARS; i++) {
       const carRoot = new THREE.Group();
       const isLead = (i === NUM_CARS - 1);
-      const isPassenger = (i === 2);
-      const exterior = buildSeoulMetroCarExterior(isLead, isPassenger, i);
+      const exterior = buildSeoulMetroCarExterior(isLead, i);
 
       // [핵심] 10개 객차 전체에 정밀 인테리어 장착 (객차간 걷기 지원)
       const interior = buildSeoulMetroInterior();
@@ -6613,10 +6630,10 @@
 
 
     // progress는 선두차(cars[NUM_CARS-1]) 기준이다.
-    // 1인칭 승객 시점용으로 외벽이 뚫려 있는 객차는 3호차(index 2) 하나뿐이므로
-    // (buildSeoulMetroCarExterior의 isPassengerCar 참고) 그 객차를 승강장 중앙에 세운다.
-    const PASSENGER_CAR_INDEX = 2;
-    const PLATFORM_STOP_LEAD_OFFSET = ((NUM_CARS - 1 - PASSENGER_CAR_INDEX) * CAR_SPACING) / routeLength;
+    // 편성(223m)이 승강장(96m)보다 길므로, 승강장 구간에 3호차를 중심으로
+    // 1~5호차가 걸치도록 정차시킨다. (승객은 자기 앞에 선 객차로 탑승)
+    const PLATFORM_STOP_CAR_INDEX = 2;
+    const PLATFORM_STOP_LEAD_OFFSET = ((NUM_CARS - 1 - PLATFORM_STOP_CAR_INDEX) * CAR_SPACING) / routeLength;
     const PLATFORM_PROGRESS_JAMSIL    = (STATION_U_JAMSIL + PLATFORM_STOP_LEAD_OFFSET) % 1.0;
     const PLATFORM_PROGRESS_GANGBYEON = (STATION_U_GANGBYEON + PLATFORM_STOP_LEAD_OFFSET) % 1.0;
 
@@ -6665,8 +6682,19 @@
       if (btn) btn.style.display = "";
     }
 
-    const BOARD_HINT_TITLE = "🚇 " + (PASSENGER_CAR_INDEX + 1) + "호차 출입문 개방";
     const BOARD_HINT_SUB = "F 키 또는 아래 버튼으로 탑승";
+    const boardHintTitle = (carIdx) => "🚇 " + (carIdx + 1) + "호차 출입문 개방";
+    let platformBoardCar = PLATFORM_STOP_CAR_INDEX; // 지금 눈앞에 서 있는 객차
+
+    // 승강장 along 좌표 기준으로 가장 가까운 객차를 고른다.
+    // PLATFORM_STOP_CAR_INDEX 객차가 along = 0에 정차하므로 간격으로 바로 환산된다.
+    function carAtPlatformAlong(along) {
+      const idx = THREE.MathUtils.clamp(
+        Math.round(along / CAR_SPACING) + PLATFORM_STOP_CAR_INDEX, 0, NUM_CARS - 1
+      );
+      const carAlong = (idx - PLATFORM_STOP_CAR_INDEX) * CAR_SPACING;
+      return { index: idx, gap: Math.abs(along - carAlong) };
+    }
 
     function setBoardHint(title, sub, show, withButton) {
       const hint = document.getElementById("board-hint");
@@ -6713,11 +6741,13 @@
       }
       syncPlatformPosFromLocal();
 
-      // 3호차는 승강장 중앙(along = 0)에 정차한다. 그 객차 앞뒤 범위에 서 있으면 탑승 가능
-      const newBoardable = Math.abs(platformAlong) < 18.0 && trainSpeed < 0.5;
-      if (newBoardable !== platformBoardable) {
+      // 눈앞에 정차한 객차의 출입문 범위 안에 서 있으면 탑승 가능
+      const near = carAtPlatformAlong(platformAlong);
+      const newBoardable = near.gap < CAR_SPACING / 2 && trainSpeed < 0.5;
+      if (newBoardable !== platformBoardable || near.index !== platformBoardCar) {
         platformBoardable = newBoardable;
-        setBoardHint(BOARD_HINT_TITLE, BOARD_HINT_SUB, platformBoardable);
+        platformBoardCar = near.index;
+        setBoardHint(boardHintTitle(near.index), BOARD_HINT_SUB, platformBoardable);
       }
 
       // F키 탑승
@@ -6734,8 +6764,8 @@
       trainSpeed = 0;
       keys.KeyF = false;
 
-      // 1인칭 승객 시점 전용 객차(3호차) 좌석으로 이동시키고 바로 승객 시점 전환
-      currentCarIndex = PASSENGER_CAR_INDEX;
+      // 눈앞의 객차 좌석으로 이동시키고 바로 승객 시점 전환
+      currentCarIndex = THREE.MathUtils.clamp(platformBoardCar, 0, NUM_CARS - 1);
       isSeated = true;
       passengerLocalPos.set(-0.65, 1.25, 0.0);
       targetEyeY = 1.25;
@@ -7684,8 +7714,9 @@
 
           // 열차 위치를 즉시 갱신해야 첫 프레임부터 탑승 판정이 맞는다
           syncCarsToProgress();
+          platformBoardCar = carAtPlatformAlong(platformAlong).index;
           platformBoardable = true;
-          setBoardHint(BOARD_HINT_TITLE, BOARD_HINT_SUB, true);
+          setBoardHint(boardHintTitle(platformBoardCar), BOARD_HINT_SUB, true);
         } else if (startMode === 'driver') {
           // 운전실 모드
           progress = 0.38;

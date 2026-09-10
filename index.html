@@ -2800,6 +2800,110 @@
     const matMaple2 = new THREE.MeshStandardMaterial({ color: 0xd44a1a, roughness: 0.78 });
     const matBush   = new THREE.MeshStandardMaterial({ color: 0x1e5e28, roughness: 0.85 });
 
+    // ------------------------------------------------------------
+    // 정적 그룹 인스턴싱 베이크
+    // 같은 (지오메트리 파라미터 + 머티리얼 외형) 조합의 메시를 InstancedMesh
+    // 하나로 합친다. 절차적 생성 코드는 그대로 두고 배치가 끝난 뒤 한 번 실행.
+    // 움직이는 그룹(차량/구름/유람선)에는 절대 쓰지 말 것.
+    // ------------------------------------------------------------
+    // 파라미터가 같아도 생성 후 변형(translate/rotate)된 지오메트리가 있을 수 있으므로
+    // 실제 정점 데이터 일부까지 시그니처에 포함한다.
+    // 나무 줄기 공용 머티리얼 (그루마다 new 하던 것을 공유해 머티리얼 수 감소 + 인스턴싱 가능)
+    const matTrunkPine = new THREE.MeshStandardMaterial({ color: 0x8b3a20, roughness: 0.88 });
+    const matTrunkCherry = new THREE.MeshStandardMaterial({ color: 0x5c3a28, roughness: 0.85 });
+
+    function geoSignature(g) {
+      const pos = g.attributes && g.attributes.position;
+      let sig = g.type + ":" + JSON.stringify(g.parameters || {}) +
+                ":" + (pos ? pos.count : 0) + ":" + (g.index ? g.index.count : 0) +
+                ":" + Object.keys(g.attributes || {}).sort().join(",");
+      if (pos && pos.array) {
+        const a = pos.array;
+        const n = Math.min(a.length, 12);
+        for (let i = 0; i < n; i++) sig += "," + a[i].toFixed(4);
+        sig += "|" + a[a.length - 1].toFixed(4);
+      }
+      return sig;
+    }
+
+    function bakeStaticGroup(group) {
+      group.updateMatrixWorld(true);
+
+      const meshes = [];
+      group.traverse(o => { if (o.isMesh && !o.isInstancedMesh) meshes.push(o); });
+      if (meshes.length === 0) return group;
+
+      const buckets = new Map();
+      const skipped = [];   // 인스턴싱 대상이 아닌 메시(머티리얼 배열 등)는 그대로 되살린다
+      for (const o of meshes) {
+        const g = o.geometry;
+        const m = o.material;
+        // 병합 제외 대상:
+        //  - 면별 머티리얼(Array)
+        //  - 커스텀 ShaderMaterial: 직접 작성한 버텍스 셰이더가 instanceMatrix를
+        //    반영하지 않으므로 인스턴싱하면 전 인스턴스가 한 자리에 겹친다
+        //    (아파트 동체 절차적 창문 셰이더가 여기 해당)
+        if (!g || !m || Array.isArray(m) || m.isShaderMaterial || m.isRawShaderMaterial) {
+          skipped.push({ mesh: o, world: o.matrixWorld.clone() });
+          continue;
+        }
+
+        const key = geoSignature(g) + "||" + m.uuid;
+        let b = buckets.get(key);
+        if (!b) {
+          b = { geometry: g, material: m, mats: [], cast: false, recv: false };
+          buckets.set(key, b);
+        }
+        b.mats.push(o.matrixWorld.clone());
+        b.cast = b.cast || o.castShadow;
+        b.recv = b.recv || o.receiveShadow;
+      }
+      if (buckets.size === 0) return group;
+
+      // 대표로 살릴 지오메트리/머티리얼
+      const keepGeo = new Set();
+      const keepMat = new Set();
+      buckets.forEach(b => { keepGeo.add(b.geometry); keepMat.add(b.material); });
+      skipped.forEach(sk => {
+        keepGeo.add(sk.mesh.geometry);
+        const mm = sk.mesh.material;
+        if (Array.isArray(mm)) mm.forEach(x => keepMat.add(x));
+        else keepMat.add(mm);
+      });
+
+      // 그룹의 월드 변환을 되돌려 로컬 행렬로 저장 (그룹이 이동해도 따라가게)
+      const invGroup = new THREE.Matrix4().copy(group.matrixWorld).invert();
+
+      group.clear();
+
+      buckets.forEach(b => {
+        const im = new THREE.InstancedMesh(b.geometry, b.material, b.mats.length);
+        for (let i = 0; i < b.mats.length; i++) {
+          im.setMatrixAt(i, b.mats[i].premultiply(invGroup));
+        }
+        im.instanceMatrix.needsUpdate = true;
+        im.castShadow = b.cast;
+        im.receiveShadow = b.recv;
+        im.computeBoundingSphere();
+        group.add(im);
+      });
+
+      // 병합하지 않은 메시를 월드 변환 그대로 복원
+      skipped.forEach(sk => {
+        const o = sk.mesh;
+        sk.world.premultiply(invGroup).decompose(o.position, o.quaternion, o.scale);
+        group.add(o);
+      });
+
+      // 합쳐지면서 버려진 지오메트리/머티리얼 정리 (GPU 메모리 회수)
+      for (const o of meshes) {
+        if (o.parent) continue;   // 복원된 메시는 건드리지 않음
+        if (o.geometry && !keepGeo.has(o.geometry)) o.geometry.dispose();
+        if (o.material && !Array.isArray(o.material) && !keepMat.has(o.material)) o.material.dispose();
+      }
+      return group;
+    }
+
     function makeProcTree(type, scale) {
       const g = new THREE.Group();
       scale = scale || 1.0;
@@ -2818,8 +2922,7 @@
           break;
         }
         case 1: { // 소나무 (Korean Red Pine) - 다단 원듿
-          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.35, 4.5, 8),
-            new THREE.MeshStandardMaterial({ color: 0x8b3a20, roughness: 0.88 }));
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.35, 4.5, 8), matTrunkPine);
           tr.position.y = 2.25; tr.castShadow = true; g.add(tr);
           [[3.2, 2.0, 4.5], [2.3, 1.7, 6.2], [1.5, 1.3, 7.7]].forEach(([r, h, y]) => {
             const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 10), matPine);
@@ -2837,8 +2940,7 @@
           break;
         }
         case 3: { // 볚꽃나무 (Cherry Blossom)
-          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.30, 3.2, 8),
-            new THREE.MeshStandardMaterial({ color: 0x5c3a28, roughness: 0.85 }));
+          const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.30, 3.2, 8), matTrunkCherry);
           tr.position.y = 1.6; tr.castShadow = true; g.add(tr);
           const main = new THREE.Mesh(new THREE.SphereGeometry(2.6, 10, 10), matCherry);
           main.position.y = 5.0; main.scale.set(1.2, 0.75, 1.2); main.castShadow = true; g.add(main);
@@ -2960,6 +3062,8 @@
       }
     }
 
+    // 나무 581그루 = 메시 3,198개(줄기/수관/구엽)를 종·부위별 InstancedMesh로 통합
+    bakeStaticGroup(treeGroup);
     scene.add(treeGroup);
 
     // GLB 나무 로드 시도 (CORS 안전 + 폴백 지원)
@@ -3204,6 +3308,8 @@
       }
     });
 
+    // 둔치 선형요소(펜스/벤치/운동기구/정자) 인스턴싱 베이크
+    bakeStaticGroup(riversideLinearGroup);
     scene.add(riversideLinearGroup);
 
     // ============================================================
@@ -3402,6 +3508,8 @@
       lampGroup.add(glow);
     });
 
+    // 가로등: 야간 점등 토글은 머티리얼 색으로 판별하므로 베이크 후에도 동작
+    bakeStaticGroup(lampGroup);
     scene.add(lampGroup);
     window._lampGroup = lampGroup;
 
@@ -3947,6 +4055,8 @@
         aptGroup.add(roof);
       });
     });
+    // 잠실 아파트 대단지(동/포디움/포장/그림자패드) 인스턴싱 베이크
+    bakeStaticGroup(aptGroup);
     scene.add(aptGroup);
 
     // ------------------------------------------------------------

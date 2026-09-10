@@ -376,7 +376,7 @@
     /* 날씨 프리셋 그리드 */
     .wx-weather-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 8px;
     }
     .wx-weather-card {
@@ -1942,6 +1942,18 @@
             <div class="wx-weather-icon">❄️</div>
             <div class="wx-weather-lbl">눈</div>
           </div>
+          <div class="wx-weather-card" data-wx-weather="storm">
+            <div class="wx-weather-icon">⛈️</div>
+            <div class="wx-weather-lbl">폭풍우</div>
+          </div>
+          <div class="wx-weather-card" data-wx-weather="hail">
+            <div class="wx-weather-icon">🧊</div>
+            <div class="wx-weather-lbl">우박</div>
+          </div>
+          <div class="wx-weather-card" data-wx-weather="dust">
+            <div class="wx-weather-icon">🌪️</div>
+            <div class="wx-weather-lbl">흙먼지</div>
+          </div>
         </div>
       </div>
 
@@ -2029,6 +2041,9 @@
       <button class="env-btn" data-weather="rain" title="비 & 빗소리">🌧️ 비</button>
       <button class="env-btn" data-weather="fog" title="물안개">🌫️ 안개</button>
       <button class="env-btn" data-weather="snow" title="눈">❄️ 눈</button>
+      <button class="env-btn" data-weather="storm" title="폭풍우 & 번개">⛈️ 폭풍우</button>
+      <button class="env-btn" data-weather="hail" title="우박">🧊 우박</button>
+      <button class="env-btn" data-weather="dust" title="흙먼지 · 황사 바람">🌪️ 흙먼지</button>
     </div>
   </div>
 
@@ -2373,6 +2388,44 @@
       }
       setWeather(weather) {
         this.windWeather = weather;
+      }
+      // 천둥: 저역 노이즈 버스트 + 느린 감쇠 (별도 음원 파일 없이 합성)
+      thunder() {
+        try {
+          if (!this.audioCtx) return;
+          const ctx = this.audioCtx;
+          if (ctx.state === "suspended") ctx.resume().catch(() => {});
+          const dur = 1.6 + Math.random() * 1.8;
+          const sr = ctx.sampleRate;
+          const buf = ctx.createBuffer(1, Math.floor(sr * dur), sr);
+          const d = buf.getChannelData(0);
+          let last = 0;
+          for (let i = 0; i < d.length; i++) {
+            // 브라운 노이즈로 우르릉거리는 저역을 만든다
+            last = (last + (Math.random() * 2 - 1) * 0.06) * 0.985;
+            d[i] = last;
+          }
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+
+          const lp = ctx.createBiquadFilter();
+          lp.type = "lowpass";
+          lp.frequency.value = 260 + Math.random() * 220;
+
+          const gain = ctx.createGain();
+          const t0 = ctx.currentTime;
+          const peak = 0.55 + Math.random() * 0.35;
+          gain.gain.setValueAtTime(0.0001, t0);
+          gain.gain.exponentialRampToValueAtTime(peak, t0 + 0.06);   // 쩍 하는 앞머리
+          gain.gain.exponentialRampToValueAtTime(peak * 0.35, t0 + 0.5);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);  // 길게 우르릉
+
+          src.connect(lp);
+          lp.connect(gain);
+          gain.connect(ctx.destination);
+          src.start(t0);
+          src.stop(t0 + dur);
+        } catch (_) {}
       }
       update(speedKmh) {
         this.windSpeedKmh = speedKmh;
@@ -7085,6 +7138,137 @@
     scene.add(snowSystem);
 
     // ------------------------------------------------------------
+    // 우박: 빠르게 사선으로 내리꽂히는 얼음 알갱이
+    // ------------------------------------------------------------
+    const HAIL_COUNT = QUALITY.mobile ? 900 : 2600;
+    const hailGeo = new THREE.BufferGeometry();
+    const hailPos = new Float32Array(HAIL_COUNT * 3);
+    const hailSpd = new Float32Array(HAIL_COUNT); // 알갱이별 낙하 속도 편차
+    for (let i = 0; i < HAIL_COUNT; i++) {
+      hailPos[i * 3 + 0] = (Math.random() - 0.5) * 420;
+      hailPos[i * 3 + 1] = Math.random() * 85 + 3;
+      hailPos[i * 3 + 2] = (Math.random() - 0.5) * 420;
+      hailSpd[i] = 46.0 + Math.random() * 26.0;
+    }
+    hailGeo.setAttribute("position", new THREE.BufferAttribute(hailPos, 3));
+    const hailMat = new THREE.PointsMaterial({
+      color: 0xdff2ff,
+      size: 0.55,
+      transparent: true,
+      opacity: 0.92
+    });
+    const hailSystem = new THREE.Points(hailGeo, hailMat);
+    hailSystem.visible = false;
+    scene.add(hailSystem);
+
+    // ------------------------------------------------------------
+    // 흙먼지(황사): 바람에 실려 수평으로 흘러가며 소용돌이치는 먼지
+    // ------------------------------------------------------------
+    const DUST_COUNT = QUALITY.mobile ? 1400 : 4200;
+    const dustGeo = new THREE.BufferGeometry();
+    const dustPos = new Float32Array(DUST_COUNT * 3);
+    const dustPhase = new Float32Array(DUST_COUNT);
+    for (let i = 0; i < DUST_COUNT; i++) {
+      dustPos[i * 3 + 0] = (Math.random() - 0.5) * 520;
+      dustPos[i * 3 + 1] = Math.random() * 60 + 0.5; // 지면 가까이에 더 짙게
+      dustPos[i * 3 + 2] = (Math.random() - 0.5) * 520;
+      dustPhase[i] = Math.random() * Math.PI * 2;
+    }
+    dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
+    const dustMat = new THREE.PointsMaterial({
+      color: 0xc9a878,
+      size: 1.6,
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false
+    });
+    const dustSystem = new THREE.Points(dustGeo, dustMat);
+    dustSystem.visible = false;
+    scene.add(dustSystem);
+
+    // ------------------------------------------------------------
+    // 번개: 폭풍우일 때 불규칙한 간격으로 하늘 전체가 번쩍인다
+    // ------------------------------------------------------------
+    const lightning = {
+      timer: 4.0,      // 다음 섬광까지 남은 시간(초)
+      flash: 0.0,      // 현재 섬광 세기 0~1
+      bolts: 0,        // 남은 연속 섬광 횟수 (번개는 보통 2~3번 깜빡인다)
+      boltGap: 0.0,
+      thunderIn: -1.0  // 천둥소리까지 남은 시간 (빛보다 늦게 도착)
+    };
+    // 섬광용 보조 광원 (씬 라이트를 받는 열차/역사에 번쩍임을 입힌다)
+    const lightningLight = new THREE.DirectionalLight(0xdce9ff, 0.0);
+    lightningLight.position.set(-400, 700, 300);
+    scene.add(lightningLight);
+
+    function updateLightning(dt) {
+      const active = (currentWeatherPreset === "storm");
+      if (!active) {
+        if (lightning.flash !== 0) {
+          lightning.flash = 0;
+          lightningLight.intensity = 0;
+          applyEnv();
+        }
+        lightning.bolts = 0;
+        lightning.timer = 2.5 + Math.random() * 5.0;
+        return;
+      }
+
+      // 다음 번개 예약
+      if (lightning.bolts <= 0 && lightning.flash <= 0) {
+        lightning.timer -= dt;
+        if (lightning.timer <= 0) {
+          lightning.bolts = 2 + Math.floor(Math.random() * 3);
+          lightning.boltGap = 0;
+          lightning.timer = 3.5 + Math.random() * 7.0;
+          lightning.thunderIn = 0.35 + Math.random() * 1.4;
+          // 섬광 방향을 매번 바꿔 구름 뒤쪽에서 치는 느낌
+          const a = Math.random() * Math.PI * 2;
+          lightningLight.position.set(Math.cos(a) * 600, 500 + Math.random() * 400, Math.sin(a) * 600);
+        }
+      }
+
+      // 연속 섬광 처리
+      if (lightning.bolts > 0 && lightning.flash <= 0) {
+        lightning.boltGap -= dt;
+        if (lightning.boltGap <= 0) {
+          lightning.flash = 0.65 + Math.random() * 0.35;
+          lightning.bolts--;
+          lightning.boltGap = 0.06 + Math.random() * 0.12;
+        }
+      }
+
+      // 천둥 (빛보다 늦게)
+      if (lightning.thunderIn > 0) {
+        lightning.thunderIn -= dt;
+        if (lightning.thunderIn <= 0) {
+          lightning.thunderIn = -1;
+          if (audio && typeof audio.thunder === "function") audio.thunder();
+        }
+      }
+
+      if (lightning.flash > 0) {
+        lightning.flash = Math.max(0, lightning.flash - dt * 7.5);
+        const f = lightning.flash;
+        // 하늘·도시·씬 라이트를 한꺼번에 들어올린다
+        lightningLight.intensity = f * 3.2;
+        hemiLight.intensity = envBase.hemiInt + f * 1.6;
+        uCityLight.value.copy(envBase.cityLight).addScalar(f * 0.85);
+        if (window._skyDomeMat) {
+          window._skyDomeMat.uniforms.uTopColor.value
+            .copy(envBase.skyTop).lerp(new THREE.Color(0xcfe2ff), f * 0.9);
+          window._skyDomeMat.uniforms.uHorizonColor.value
+            .copy(envBase.skyCol).lerp(new THREE.Color(0xe6f0ff), f * 0.85);
+        }
+        scene.fog.color.copy(envBase.skyCol).lerp(new THREE.Color(0xdbe7f7), f * 0.7);
+        uCityFog.color.value.copy(scene.fog.color);
+        if (lightning.flash === 0) applyEnv(); // 원래 환경값 복구
+      } else {
+        lightningLight.intensity = 0;
+      }
+    }
+
+    // ------------------------------------------------------------
     // 창문 빗물 맺힘 & 흘러내림 캔버스 FX (객실 창가 시점용)
     // ------------------------------------------------------------
     const rainCanvas = document.getElementById("window-rain-canvas");
@@ -7124,7 +7308,8 @@
     }
 
     function updateWindowRain(dt) {
-      if (!rctx || !rainCanvas || currentWeatherPreset !== "rain" || viewMode !== 2) {
+      const wetWx = (currentWeatherPreset === "rain" || currentWeatherPreset === "storm" || currentWeatherPreset === "hail");
+      if (!rctx || !rainCanvas || !wetWx || viewMode !== 2) {
         if (rainCanvas && rainCanvas.classList.contains("active")) {
           rainCanvas.classList.remove("active");
           if (rctx) rctx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
@@ -7138,6 +7323,9 @@
 
       const vibAmp = Math.min(1.0, (trainSpeed * 3.6) / 50.0) * 0.6;
       const tNow = performance.now() * 0.006;
+      // 날씨별 세기: 폭풍우는 굵고 빠르게, 우박은 튀는 물방울 위주
+      const wxK = currentWeatherPreset === "storm" ? 1.85
+                : currentWeatherPreset === "hail" ? 1.25 : 1.0;
 
       // 1. 유리창에 맺힌 정적 물방울 (열차 주행 진동으로 미세 떨림)
       for (let i = 0; i < staticBeads.length; i++) {
@@ -7145,7 +7333,7 @@
         const jx = b.x + Math.sin(tNow * 12.0 + b.phase) * vibAmp;
         const jy = b.y + Math.cos(tNow * 14.0 + b.phase) * vibAmp;
 
-        rctx.fillStyle = `rgba(225, 238, 250, ${b.alpha})`;
+        rctx.fillStyle = `rgba(225, 238, 250, ${Math.min(0.95, b.alpha * wxK)})`;
         rctx.beginPath();
         rctx.arc(jx, jy, b.r, 0, Math.PI * 2);
         rctx.fill();
@@ -7159,23 +7347,24 @@
       // 2. 창문을 타고 아래로 주르륵 흐르는 빗방울과 꼬리 궤적
       for (let i = 0; i < drops.length; i++) {
         const d = drops[i];
-        d.y += d.speed * 50 * dt;
+        d.y += d.speed * 50 * dt * wxK;
         if (d.y > rainCanvas.height + 35) {
           d.y = -25;
           d.x = Math.random() * rainCanvas.width;
         }
 
-        rctx.fillStyle = `rgba(220, 236, 248, ${d.alpha})`;
+        const dAlpha = Math.min(0.95, d.alpha * wxK);
+        rctx.fillStyle = `rgba(220, 236, 248, ${dAlpha})`;
         rctx.beginPath();
-        rctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        rctx.arc(d.x, d.y, d.r * (wxK > 1.5 ? 1.35 : 1.0), 0, Math.PI * 2);
         rctx.fill();
 
         if (d.len > 0) {
-          rctx.strokeStyle = `rgba(205, 226, 242, ${d.alpha * 0.75})`;
-          rctx.lineWidth = d.r * 0.85;
+          rctx.strokeStyle = `rgba(205, 226, 242, ${dAlpha * 0.75})`;
+          rctx.lineWidth = d.r * 0.85 * (wxK > 1.5 ? 1.3 : 1.0);
           rctx.beginPath();
           rctx.moveTo(d.x, d.y);
-          rctx.lineTo(d.x - 0.4, d.y - d.len);
+          rctx.lineTo(d.x - 0.4 * wxK, d.y - d.len * wxK);
           rctx.stroke();
         }
       }
@@ -7287,7 +7476,10 @@
       cloudy: { label: "흐림", icon: "☁️" },
       rain: { label: "비", icon: "🌧️" },
       fog: { label: "안개", icon: "🌫️" },
-      snow: { label: "눈", icon: "❄️" }
+      snow: { label: "눈", icon: "❄️" },
+      storm: { label: "폭풍우", icon: "⛈️" },
+      hail: { label: "우박", icon: "🧊" },
+      dust: { label: "흙먼지", icon: "🌪️" }
     };
 
     function computeEnv(timePreset, weatherPreset) {
@@ -7317,6 +7509,24 @@
         sInt *= 0.58;
         fogN = Math.min(fogN, 380);
         fogF = Math.min(fogF, 3400);
+      } else if (weatherPreset === "storm") {
+        // 폭풍우: 먹구름으로 대낮에도 어둑하고 시야가 짧다
+        skyCol.lerp(new THREE.Color(0x39434e), 0.82);
+        sInt *= 0.20;
+        fogN = Math.min(fogN, 160);
+        fogF = Math.min(fogF, 1600);
+      } else if (weatherPreset === "hail") {
+        // 우박: 차갑고 창백한 잿빛 하늘
+        skyCol.lerp(new THREE.Color(0x7a8794), 0.66);
+        sInt *= 0.40;
+        fogN = Math.min(fogN, 220);
+        fogF = Math.min(fogF, 2000);
+      } else if (weatherPreset === "dust") {
+        // 흙먼지/황사: 누런 대기, 시야 극도로 제한
+        skyCol.lerp(new THREE.Color(0xb08a56), 0.80);
+        sInt *= 0.38;
+        fogN = 70;
+        fogF = 1000;
       }
 
       // 커스텀 도시 셰이더(지면/건물/도로/잔디)는 씬 라이트를 안 받으므로
@@ -7327,6 +7537,29 @@
       else if (weatherPreset === "rain")   { cityLight.multiplyScalar(0.60); winLit += 0.12; }
       else if (weatherPreset === "fog")    { cityLight.multiplyScalar(0.70); winLit += 0.10; }
       else if (weatherPreset === "snow")   { cityLight.multiplyScalar(0.84); winLit += 0.06; }
+      else if (weatherPreset === "storm")  { cityLight.multiplyScalar(0.40); winLit += 0.20; }
+      else if (weatherPreset === "hail")   { cityLight.multiplyScalar(0.56); winLit += 0.14; }
+      else if (weatherPreset === "dust")   { cityLight.multiply(new THREE.Color(0.72, 0.58, 0.38)); winLit += 0.16; }
+
+      // 표준 머티리얼(선로·역사·열차)도 날씨 분위기를 따라가도록 광원 색을 물들인다.
+      // (예전엔 세기만 줄어서 황사 속에서 선로만 혼자 회색으로 떴다)
+      const sunColor = new THREE.Color(tc.sunColor);
+      const hemiSky = new THREE.Color(tc.hemiSky);
+      const hemiGround = new THREE.Color(tc.hemiGround);
+      let hemiInt = tc.hemiIntensity;
+      const tintLights = (col, k, ambScale) => {
+        sunColor.lerp(col, k);
+        hemiSky.lerp(col, k);
+        hemiGround.lerp(col, k * 0.7);
+        hemiInt *= ambScale;
+      };
+      if (weatherPreset === "cloudy")      tintLights(new THREE.Color(0xa9b8c2), 0.45, 0.92);
+      else if (weatherPreset === "rain")   tintLights(new THREE.Color(0x8496a4), 0.60, 0.80);
+      else if (weatherPreset === "fog")    tintLights(new THREE.Color(0xb9c6ca), 0.65, 0.95);
+      else if (weatherPreset === "snow")   tintLights(new THREE.Color(0xc2d0da), 0.45, 0.95);
+      else if (weatherPreset === "storm")  tintLights(new THREE.Color(0x5e6b78), 0.78, 0.58);
+      else if (weatherPreset === "hail")   tintLights(new THREE.Color(0x93a4b2), 0.62, 0.78);
+      else if (weatherPreset === "dust")   tintLights(new THREE.Color(0xc79355), 0.80, 0.85);
 
       const sp = SKY_UNIFORM_PRESETS[timePreset] || SKY_UNIFORM_PRESETS.morning;
       let cloudCover = sp.cloudBase;
@@ -7334,6 +7567,9 @@
       else if (weatherPreset === "rain") cloudCover = 0.88;
       else if (weatherPreset === "fog") cloudCover = 0.72;
       else if (weatherPreset === "snow") cloudCover = 0.64;
+      else if (weatherPreset === "storm") cloudCover = 0.98;
+      else if (weatherPreset === "hail") cloudCover = 0.90;
+      else if (weatherPreset === "dust") cloudCover = 0.82;
 
       let cloudOpacity = 0.0;
       if (weatherPreset === "clear") cloudOpacity = 0.32;
@@ -7341,26 +7577,43 @@
       else if (weatherPreset === "rain") cloudOpacity = 0.94;
       else if (weatherPreset === "snow") cloudOpacity = 0.78;
       else if (weatherPreset === "fog") cloudOpacity = 0.45;
+      else if (weatherPreset === "storm") cloudOpacity = 1.0;
+      else if (weatherPreset === "hail") cloudOpacity = 0.92;
+      else if (weatherPreset === "dust") cloudOpacity = 0.88;
 
       let cloudTint;
       if (timePreset === "sunset") cloudTint = new THREE.Color(0xff9876);
       else if (timePreset === "night") cloudTint = new THREE.Color(0x1a2232);
       else if (weatherPreset === "rain") cloudTint = new THREE.Color(0x56606a);
+      else if (weatherPreset === "storm") cloudTint = new THREE.Color(0x333b45);
+      else if (weatherPreset === "hail") cloudTint = new THREE.Color(0x6a7682);
+      else if (weatherPreset === "dust") cloudTint = new THREE.Color(0xc9a068);
       else cloudTint = new THREE.Color(0xf2f6fa);
+
+      // 스카이돔 상단 색은 지금까지 시간대만 반영해서, 폭풍우/황사인데도
+      // 머리 위 하늘만 파랗게 남는 문제가 있었다. 날씨 색으로 끌어당긴다.
+      const skyTop = new THREE.Color(sp.top);
+      if (weatherPreset === "cloudy")      skyTop.lerp(skyCol, 0.55);
+      else if (weatherPreset === "rain")   skyTop.lerp(skyCol, 0.70);
+      else if (weatherPreset === "fog")    skyTop.lerp(skyCol, 0.85);
+      else if (weatherPreset === "snow")   skyTop.lerp(skyCol, 0.60);
+      else if (weatherPreset === "storm")  skyTop.lerp(skyCol, 0.88);
+      else if (weatherPreset === "hail")   skyTop.lerp(skyCol, 0.72);
+      else if (weatherPreset === "dust")   skyTop.lerp(skyCol, 0.90);
 
       return {
         skyCol,
         fogN, fogF,
         sunPos: tc.sunPos.clone(),
-        sunColor: new THREE.Color(tc.sunColor),
+        sunColor,
         sunInt: sInt,
-        hemiSky: new THREE.Color(tc.hemiSky),
-        hemiGround: new THREE.Color(tc.hemiGround),
-        hemiInt: tc.hemiIntensity,
+        hemiSky,
+        hemiGround,
+        hemiInt,
         waterSunCol: tc.waterSunCol.clone(),
         waterDeep: tc.waterDeep.clone(),
         waterShallow: tc.waterShallow.clone(),
-        skyTop: new THREE.Color(sp.top),
+        skyTop,
         sunGlow: sp.sunGlow,
         moon: sp.moon,
         cloudCover,
@@ -7398,7 +7651,11 @@
       };
     }
 
+    // 번개 섬광이 원래 값으로 복귀할 수 있도록 마지막으로 적용된 환경값을 기억
+    let envBase = null;
+
     function applyEnvValues(v) {
+      envBase = v;
       // 스카이돔을 위해 scene.background는 null (스카이돔 메시가 배경 담당)
       scene.background = null;
       renderer.setClearColor(v.skyCol, 1.0);
@@ -7465,10 +7722,16 @@
     function applyEnvDiscrete() {
       const tc = TIME_CONFIGS[currentTimePreset];
 
-      rainSystem.visible = (currentWeatherPreset === "rain");
-      snowSystem.visible = (currentWeatherPreset === "snow");
-      audio.setRain(currentWeatherPreset === "rain");
-      audio.setWeather(currentWeatherPreset);
+      const wx = currentWeatherPreset;
+      // 폭풍우는 기존 빗줄기 시스템을 더 굵고 촘촘하게 재사용한다
+      rainSystem.visible = (wx === "rain" || wx === "storm");
+      rainSystem.material.opacity = (wx === "storm") ? 0.75 : 0.45;
+      rainSystem.material.color.set(wx === "storm" ? 0x8fb4cc : 0x9ec0d2);
+      snowSystem.visible = (wx === "snow");
+      hailSystem.visible = (wx === "hail");
+      dustSystem.visible = (wx === "dust");
+      audio.setRain(wx === "rain" || wx === "storm");
+      audio.setWeather(wx);
 
       document.querySelector("#clock-display").textContent = tc.clock;
       document.querySelector("#time-icon").textContent = tc.icon;
@@ -7546,7 +7809,7 @@
       setTime(timeKeys[(idx + 1) % timeKeys.length]);
     }
 
-    const weatherKeys = ["clear", "cloudy", "rain", "fog", "snow"];
+    const weatherKeys = ["clear", "cloudy", "rain", "fog", "snow", "storm", "hail", "dust"];
     function cycleWeather() {
       const idx = weatherKeys.indexOf(currentWeatherPreset);
       setWeather(weatherKeys[(idx + 1) % weatherKeys.length]);
@@ -7713,13 +7976,16 @@
         });
       }
       // 비/눈 파티클 가시성 및 강도
+      // (프리셋이 이미 켠 강수는 슬라이더가 0이어도 끄지 않는다)
+      const presetRain = (currentWeatherPreset === "rain" || currentWeatherPreset === "storm");
+      const presetSnow = (currentWeatherPreset === "snow");
       if (typeof rainSystem !== "undefined") {
-        rainSystem.visible = rainV > 0.1;
-        if (rainSystem.material) rainSystem.material.opacity = rainV * 0.8;
+        rainSystem.visible = presetRain || rainV > 0.1;
+        if (rainSystem.material && !presetRain) rainSystem.material.opacity = rainV * 0.8;
       }
       if (typeof snowSystem !== "undefined") {
-        snowSystem.visible = snowV > 0.1;
-        if (snowSystem.material) snowSystem.material.opacity = snowV * 0.9;
+        snowSystem.visible = presetSnow || snowV > 0.1;
+        if (snowSystem.material && !presetSnow) snowSystem.material.opacity = snowV * 0.9;
       }
       // 안개 거리 조정 (가시거리 슬라이더 + 안개 슬라이더)
       const baseFar = (TIME_CONFIGS[currentTimePreset] || TIME_CONFIGS.morning).fogFar;
@@ -8395,7 +8661,8 @@
     const CINE_ENV = [
       ["morning", "clear"], ["noon", "clear"], ["noon", "cloudy"], ["sunset", "clear"],
       ["night", "clear"], ["night", "rain"], ["morning", "fog"], ["noon", "snow"],
-      ["sunset", "cloudy"]
+      ["sunset", "cloudy"], ["noon", "storm"], ["night", "storm"], ["sunset", "dust"],
+      ["noon", "hail"]
     ];
     const CINE_ENV_EVERY = 2;      // 샷 몇 개마다 시간/날씨를 바꿀지
     const CINE_ENV_FADE = 6.0;     // 환경 크로스페이드 길이(초)
@@ -8890,26 +9157,75 @@
       }
 
       if (rainSystem.visible) {
-        const leadPos = (cars && cars[0]) ? cars[0].position : camera.position;
-        rainSystem.position.set(leadPos.x, 0, leadPos.z);
+        // 강수는 항상 보는 사람 주위에 뿌린다 (예전엔 맨 뒤 객차 기준이라
+        // 운전실·외부 시점에서는 비가 시야 밖에 있었다)
+        rainSystem.position.set(camera.position.x, 0, camera.position.z);
         const pos = rainGeo.attributes.position.array;
-        const dropSpeed = 95.0 * dt;
+        // 폭풍우에서는 더 빠르게, 강풍에 밀려 사선으로 쏟아진다
+        const isStorm = (currentWeatherPreset === "storm");
+        const dropSpeed = (isStorm ? 165.0 : 95.0) * dt;
+        const gust = isStorm ? (26.0 + Math.sin(time * 0.7) * 14.0) * dt : 0;
         for (let i = 0; i < RAIN_COUNT; i++) {
           const idx = i * 6;
           pos[idx + 1] -= dropSpeed;
           pos[idx + 4] -= dropSpeed;
+          if (gust !== 0) {
+            pos[idx + 0] += gust;
+            pos[idx + 3] += gust;
+          }
           if (pos[idx + 4] < 0) {
             const newY = Math.random() * 20 + 75;
+            const nx = (Math.random() - 0.5) * 450;
             pos[idx + 1] = newY;
-            pos[idx + 4] = newY - 2.4;
+            pos[idx + 4] = newY - (isStorm ? 5.2 : 2.4);
+            pos[idx + 0] = nx;
+            pos[idx + 3] = nx - (isStorm ? 1.6 : 0.25);
           }
         }
         rainGeo.attributes.position.needsUpdate = true;
       }
 
+      // 우박: 거의 수직으로 빠르게 내리꽂히고 지면에서 튀어오르듯 재배치
+      if (hailSystem.visible) {
+        hailSystem.position.set(camera.position.x, 0, camera.position.z);
+        const pos = hailGeo.attributes.position.array;
+        const slant = 9.0 * dt;
+        for (let i = 0; i < HAIL_COUNT; i++) {
+          const i3 = i * 3;
+          pos[i3 + 1] -= hailSpd[i] * dt;
+          pos[i3 + 0] += slant;
+          if (pos[i3 + 1] < 0) {
+            pos[i3 + 0] = (Math.random() - 0.5) * 420;
+            pos[i3 + 1] = 80 + Math.random() * 20;
+            pos[i3 + 2] = (Math.random() - 0.5) * 420;
+          }
+        }
+        hailGeo.attributes.position.needsUpdate = true;
+      }
+
+      // 흙먼지: 바람에 실려 수평으로 흐르며 소용돌이친다
+      if (dustSystem.visible) {
+        dustSystem.position.set(camera.position.x, 0, camera.position.z);
+        const pos = dustGeo.attributes.position.array;
+        const windX = 34.0 * dt;
+        for (let i = 0; i < DUST_COUNT; i++) {
+          const i3 = i * 3;
+          const ph = dustPhase[i];
+          pos[i3 + 0] += windX + Math.sin(time * 1.3 + ph) * 3.2 * dt;
+          pos[i3 + 1] += Math.sin(time * 0.9 + ph * 1.7) * 2.4 * dt;
+          pos[i3 + 2] += Math.cos(time * 1.1 + ph) * 5.0 * dt;
+          if (pos[i3 + 0] > 260) pos[i3 + 0] -= 520;
+          if (pos[i3 + 1] < 0.2) pos[i3 + 1] = 0.2;
+          if (pos[i3 + 1] > 62) pos[i3 + 1] = 62;
+        }
+        dustGeo.attributes.position.needsUpdate = true;
+      }
+
+      // 번개 섬광 (폭풍우 전용)
+      updateLightning(dt);
+
       if (snowSystem.visible) {
-        const leadPos = (cars && cars[0]) ? cars[0].position : camera.position;
-        snowSystem.position.set(leadPos.x, 0, leadPos.z);
+        snowSystem.position.set(camera.position.x, 0, camera.position.z);
         const pos = snowGeo.attributes.position.array;
         for (let i = 0; i < SNOW_COUNT * 3; i += 3) {
           pos[i + 1] -= 9.5 * dt; // 부드럽고 느린 하강

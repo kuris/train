@@ -726,8 +726,8 @@
     /* 시작 지점 선택 카드 그리드 */
     .start-location-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
       margin: 20px 0 8px;
     }
 
@@ -2219,16 +2219,22 @@
 
       <div style="font-size:11.5px; font-weight:800; color:#94a3b8; letter-spacing:0.8px; margin: 16px 0 10px; text-align:left;">🗺️ 시작 지점 선택</div>
       <div class="start-location-grid">
-        <div class="start-loc-card loc-platform" id="loc-platform" onclick="selectStartLoc('platform', event)">
+        <div class="start-loc-card loc-platform" id="loc-jamsil" onclick="selectStartLoc('platform-jamsil', event)">
           <div class="start-loc-icon">🚉</div>
-          <div class="start-loc-title">역 승강장</div>
-          <div class="start-loc-desc">역 안을 걸어다니다가 열차에 탑승</div>
+          <div class="start-loc-title">잠실나루역</div>
+          <div class="start-loc-desc">잠실나루 승강장에서 탑승</div>
+          <div class="start-loc-badge">NEW</div>
+        </div>
+        <div class="start-loc-card loc-platform" id="loc-gangbyeon" onclick="selectStartLoc('platform-gangbyeon', event)">
+          <div class="start-loc-icon">🚉</div>
+          <div class="start-loc-title">강변역</div>
+          <div class="start-loc-desc">강변역 승강장에서 탑승</div>
           <div class="start-loc-badge">NEW</div>
         </div>
         <div class="start-loc-card loc-train active" id="loc-train" onclick="selectStartLoc('train', event)">
           <div class="start-loc-icon">🚇</div>
           <div class="start-loc-title">열차 안</div>
-          <div class="start-loc-desc">이미 달리는 열차 안 승객 시점</div>
+          <div class="start-loc-desc">달리는 열차 안 승객 시점</div>
           <div class="start-loc-badge">기본값</div>
         </div>
         <div class="start-loc-card loc-driver" id="loc-driver" onclick="selectStartLoc('driver', event)">
@@ -6571,9 +6577,9 @@
       if (platformDeparting) {
         platformDepartTimer -= dt;
         if (platformDepartTimer <= 0) {
-          // 출발 완료 → 승객 모드로 전환
+          // 출발 완료 → 승객 모드로 전환 후 열차 출발
           setViewMode(2);
-          trainSpeed = 0;
+          trainSpeed = 16.7; // 60 km/h로 출발
           started = true;
           platformDeparting = false;
           platformBoarded = true;
@@ -6605,8 +6611,9 @@
       orbitYaw = 0.0;
       orbitPitch = -0.06;
 
-      // 열차 잠실나루역에 정차 중 progress 세팅
-      progress = PLATFORM_PROGRESS_JAMSIL;
+      // 현재 선택한 역의 progress 사용
+      const isJamsil = (startMode !== 'platform-gangbyeon');
+      progress = isJamsil ? PLATFORM_PROGRESS_JAMSIL : PLATFORM_PROGRESS_GANGBYEON;
 
       // 2.5초 후 viewMode 2로 전환 (updatePlatformWalk에서 처리)
     }
@@ -7482,14 +7489,24 @@
     window.selectStartLoc = function(loc, e) {
       if (e && e.stopPropagation) e.stopPropagation();
       startMode = loc;
-      ['platform', 'train', 'driver'].forEach(id => {
-        const el = document.getElementById('loc-' + id);
-        if (el) el.classList.toggle('active', id === loc);
+      // 모든 카드 active 해제 후 선택된 것만 활성화
+      ['loc-jamsil', 'loc-gangbyeon', 'loc-train', 'loc-driver'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('active');
       });
+      const idMap = {
+        'platform-jamsil': 'loc-jamsil',
+        'platform-gangbyeon': 'loc-gangbyeon',
+        'train': 'loc-train',
+        'driver': 'loc-driver'
+      };
+      const activeEl = document.getElementById(idMap[loc]);
+      if (activeEl) activeEl.classList.add('active');
       // 출발 버튼 텍스트 업데이트
       const startBtnEl = document.getElementById('start');
       if (startBtnEl) {
-        if (loc === 'platform') startBtnEl.textContent = '🚉 역 승강장에서 시작';
+        if (loc === 'platform-jamsil') startBtnEl.textContent = '🚉 잠실나루역에서 시작';
+        else if (loc === 'platform-gangbyeon') startBtnEl.textContent = '🚉 강변역에서 시작';
         else if (loc === 'train') startBtnEl.textContent = '🚇 열차 안에서 시작';
         else if (loc === 'driver') startBtnEl.textContent = '🚞 운전실에서 시작';
       }
@@ -7502,19 +7519,29 @@
         audio.init();
 
         // 선택된 시작 지점에 따라 초기 상태 설정
-        if (startMode === 'platform') {
-          // 역 승강장 모드: 열차를 잠실나루역에 정차시키고 플레이어를 승강장에 배치
-          progress = PLATFORM_PROGRESS_JAMSIL;
+        if (startMode === 'platform-jamsil' || startMode === 'platform-gangbyeon') {
+          const isJamsil = startMode === 'platform-jamsil';
+          progress = isJamsil ? PLATFORM_PROGRESS_JAMSIL : PLATFORM_PROGRESS_GANGBYEON;
           trainSpeed = 0;
-          started = true; // 열차를 선로 위에 배치 (속도 0이므로 정차 유지)
-          platformPos.copy(STATION_PLATFORM_POS);
-          platformPos.x += 7.0;  // 승강장 중심 (선로 옆)
-          platformPos.z -= 10.0; // 열차 중간 위치 앞
-          platformYaw = Math.PI; // 열차 방향
+          started = true;
+          const basePos = isJamsil ? STATION_PLATFORM_POS : GANGBYEON_PLATFORM_POS;
+          platformPos.copy(basePos);
+          platformPos.x += 4.5; // 열차 로미 바로 옆 (즉시 탑승 가능)
+          platformPos.z += 0.0;
+          platformYaw = Math.PI;
           platformPitch = -0.05;
           platformBoarded = false;
           platformDeparting = false;
-          platformBoardable = false;
+          platformBoardable = true; // 시작하자마자 탑승 가능
+          // 탑승 힌트 즉시 표시
+          const hintEl = document.getElementById('board-hint');
+          if (hintEl) {
+            hintEl.style.display = 'block';
+            document.getElementById('board-hint-title').textContent = '🚇 열차가 대기 중입니다';
+            document.getElementById('board-hint-sub').textContent = 'F 키 또는 아래 버튼으로 탑승';
+          }
+          const platNameEl = document.getElementById('platform-station-name');
+          if (platNameEl) platNameEl.textContent = isJamsil ? '잠실나루역' : '강변역';
           setViewMode(5);
         } else if (startMode === 'driver') {
           // 운전실 모드

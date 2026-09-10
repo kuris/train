@@ -5362,66 +5362,22 @@
         interior.add(ringMesh);
       }
 
-      // 단부 개방형 통로문 (객차 간 시야 개방 & 자유 이동 지원)
+      // 단부 완전히 개방된 통로 (객차 간 문 아예 없음 - 탁 트인 이동 통로)
       [-11.5, 11.5].forEach(wz => {
-        // 좌측 벽
-        const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.95, 2.4, 0.15), matCeiling);
-        wallL.position.set(-1.025, 1.2, wz);
+        // 좌측 벽 (측면 마감용)
+        const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.4, 0.15), matCeiling);
+        wallL.position.set(-1.25, 1.2, wz);
         interior.add(wallL);
 
-        // 우측 벽
-        const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.95, 2.4, 0.15), matCeiling);
-        wallR.position.set(1.025, 1.2, wz);
+        // 우측 벽 (측면 마감용)
+        const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.4, 0.15), matCeiling);
+        wallR.position.set(1.25, 1.2, wz);
         interior.add(wallR);
 
         // 상단 트랜섬 헤더
-        const header = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.38, 0.15), matCeiling);
-        header.position.set(0, 2.21, wz);
+        const header = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.2, 0.15), matCeiling);
+        header.position.set(0, 2.3, wz);
         interior.add(header);
-
-        // 통로문 알루미늄 프레임
-        const doorFrameMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.7, roughness: 0.3 });
-        const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.04, 0.16), doorFrameMat);
-        frameL.position.set(-0.55, 1.02, wz);
-        interior.add(frameL);
-        const frameR = frameL.clone();
-        frameR.position.set(0.55, 1.02, wz);
-        interior.add(frameR);
-
-        // 통로문은 '열린 상태'로 고정. 유리 문짝 2장을 좌우 벽 쪽으로 밀어두어
-        // 개구부가 완전히 비고, 앞/뒤 객차 내부가 그대로 들여다보인다.
-        const gangwayGlassMat = new THREE.MeshPhysicalMaterial({
-          color: 0xc8e8f0,
-          transparent: true,
-          opacity: 0.16,          // 문짝이 있다는 건 보이되 너머가 다 비치는 정도
-          roughness: 0.06,
-          metalness: 0.0,
-          transmission: 0.9,
-          thickness: 0.01,
-          ior: 1.45,
-          side: THREE.DoubleSide,
-          depthWrite: false       // 반투명 유리가 뒤 객차를 가리지 않도록
-        });
-        const leafZ = wz + (wz > 0 ? -0.02 : 0.02);
-        [-1, 1].forEach(sideSign => {
-          // 열린 문짝 (벽 쪽으로 슬라이드된 위치)
-          const leaf = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 1.98), gangwayGlassMat);
-          leaf.position.set(sideSign * 0.83, 1.02, leafZ);
-          leaf.renderOrder = 2;
-          interior.add(leaf);
-
-          // 문짝 세로 프레임 (열린 문짝의 안쪽 모서리)
-          const leafEdge = new THREE.Mesh(new THREE.BoxGeometry(0.035, 2.0, 0.05), doorFrameMat);
-          leafEdge.position.set(sideSign * 0.585, 1.02, leafZ);
-          interior.add(leafEdge);
-
-          // 문짝 손잡이
-          const handleMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.85, roughness: 0.2 });
-          const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 8), handleMat);
-          handle.rotation.x = Math.PI / 2;
-          handle.position.set(sideSign * 0.66, 1.05, leafZ + (wz > 0 ? -0.03 : 0.03));
-          interior.add(handle);
-        });
 
         // 객차 간 연결 발판 (Gangway Tread Plate)
         const treadMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.5 });
@@ -5503,10 +5459,37 @@
       carGroup.add(carShadow);
 
       if (!isPassengerCar) {
-        // 일반 객차 외벽
-        const body = new THREE.Mesh(new THREE.BoxGeometry(3.14, 2.82, 23.5), matBody);
-        body.position.set(0, 1.41, 0);
-        carGroup.add(body);
+        // 일반 객차 외벽 (좌우/천장/바닥)
+        const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.82, 23.5), matBody);
+        wallL.position.set(-1.51, 1.41, 0);
+        carGroup.add(wallL);
+
+        const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.82, 23.5), matBody);
+        wallR.position.set(1.51, 1.41, 0);
+        carGroup.add(wallR);
+
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.12, 23.5), matBody);
+        roof.position.set(0, 2.76, 0);
+        carGroup.add(roof);
+
+        const floorBase = new THREE.Mesh(new THREE.BoxGeometry(3.14, 0.12, 23.5), matBody);
+        floorBase.position.set(0, 0.06, 0);
+        carGroup.add(floorBase);
+
+        // 단부 벽 (중앙 통로 개방형)
+        [-11.7, 11.7].forEach(ez => {
+          const endL = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.82, 0.1), matBody);
+          endL.position.set(-1.18, 1.41, ez);
+          carGroup.add(endL);
+
+          const endR = new THREE.Mesh(new THREE.BoxGeometry(0.65, 2.82, 0.1), matBody);
+          endR.position.set(1.18, 1.41, ez);
+          carGroup.add(endR);
+
+          const endTop = new THREE.Mesh(new THREE.BoxGeometry(1.71, 0.35, 0.1), matBody);
+          endTop.position.set(0, 2.645, ez);
+          carGroup.add(endTop);
+        });
 
         // 2호선 시그니처 초록 띠 (측면 상단 & 중앙)
         [-1.59, 1.59].forEach(sx => {
@@ -5706,11 +5689,19 @@
         }
       });
 
-      // 차량 간 연결막 (아코디언 갱웨이 자바라 - 차간 틈새 완벽 차폐)
+      // 차량 간 연결막 (아코디언 갱웨이 중공형 자바라 - 중앙 통로가 시원하게 뚫린 형태)
       [-11.75, 11.75].forEach(gz => {
-        const bellows = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.25, 0.8), matDoorRubber);
-        bellows.position.set(0, 1.22, gz);
-        carGroup.add(bellows);
+        const bellowsL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.25, 0.8), matDoorRubber);
+        bellowsL.position.set(-1.15, 1.22, gz);
+        carGroup.add(bellowsL);
+
+        const bellowsR = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.25, 0.8), matDoorRubber);
+        bellowsR.position.set(1.15, 1.22, gz);
+        carGroup.add(bellowsR);
+
+        const bellowsT = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.25, 0.8), matDoorRubber);
+        bellowsT.position.set(0, 2.22, gz);
+        carGroup.add(bellowsT);
       });
 
       // 선두차 (2000호대 운전실 전면 유선형 캡 & 비상탈출문 & 와이퍼 & 커플러 & LED 헤드라이트)

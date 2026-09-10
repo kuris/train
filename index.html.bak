@@ -6,7 +6,7 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Han River Line | 한강선 - 감상형 웹 시뮬레이터</title>
+  <title>Han River Line | 한강선 (DEBUG)</title>
   <style>
     :root {
       /* 폴드/노치 기기 안전영역 (미지원 브라우저는 0px) */
@@ -1491,189 +1491,15 @@
       opacity: 0.3;
       mix-blend-mode: overlay;
     }
-
-    /* 창문 빗물 효과 캔버스 */
-    #window-rain-canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.6s ease;
-    }
-    #window-rain-canvas.active {
-      opacity: 1;
-    }
-
-    /* 감상 모드 (Ambient Mode) 스타일 */
-    body.ambient-mode #bottom-dash,
-    body.ambient-mode #action-hint,
-    body.ambient-mode #card-align-hud {
-      opacity: 0 !important;
-      pointer-events: none !important;
-      transform: translateY(18px);
-      transition: all 0.5s ease;
-    }
-    body.ambient-mode #card-station {
-      opacity: 0.72;
-      transform: scale(0.92);
-      transform-origin: top left;
-      transition: all 0.5s ease;
-    }
-    body.ambient-mode #card-time {
-      opacity: 0.72;
-      transform: scale(0.92);
-      transform-origin: top right;
-      transition: all 0.5s ease;
-    }
-    body.ambient-mode #card-mission {
-      opacity: 0.45;
-      transform: scale(0.9);
-      transform-origin: top left;
-      transition: all 0.5s ease;
-    }
-
-    /* 5초 이상 무입력 시 UI 서서히 희미화 */
-    body.ui-dimmed #card-station,
-    body.ui-dimmed #card-time,
-    body.ui-dimmed #card-mission,
-    body.ui-dimmed #top-guidance,
-    body.ui-dimmed #passenger-footer,
-    body.ui-dimmed #btn-wx-panel,
-    body.ui-dimmed #card-align-hud,
-    body.ui-dimmed #mobile-action-bar,
-    body.ui-dimmed .joystick-zone {
-      opacity: 0.12 !important;
-      transition: opacity 1.2s ease;
-    }
-    body.ui-dimmed #card-station:hover,
-    body.ui-dimmed #card-time:hover,
-    body.ui-dimmed #passenger-footer:hover {
-      opacity: 0.95 !important;
-    }
-
-    /* 독서 / 한강선 로그북 패널 */
-    #card-logbook {
-      position: fixed;
-      top: 96px;
-      left: 20px;
-      width: 320px;
-      max-height: 58vh;
-      background: rgba(18, 26, 36, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      backdrop-filter: blur(18px);
-      border-radius: 14px;
-      padding: 16px 18px 14px;
-      z-index: 26;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
-      display: none;
-      flex-direction: column;
-      gap: 10px;
-      color: #f1f5f9;
-      font-size: 12.5px;
-      user-select: none;
-      animation: fadeInLogPanel 0.25s ease;
-    }
-    @keyframes fadeInLogPanel {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    #card-logbook.open {
-      display: flex;
-    }
-    .logbook-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-      padding-bottom: 8px;
-    }
-    .logbook-title {
-      font-size: 13.5px;
-      font-weight: 800;
-      letter-spacing: 0.6px;
-      color: #e2e8f0;
-      display: flex;
-      align-items: center;
-      gap: 7px;
-    }
-    .logbook-close-btn {
-      background: transparent;
-      border: none;
-      color: #94a3b8;
-      font-size: 15px;
-      cursor: pointer;
-      padding: 2px 6px;
-      border-radius: 4px;
-    }
-    .logbook-close-btn:hover {
-      color: #fff;
-      background: rgba(255, 255, 255, 0.1);
-    }
-    .logbook-quote {
-      font-size: 11px;
-      color: #94a3b8;
-      line-height: 1.45;
-      font-style: italic;
-      margin: 0;
-      padding-bottom: 4px;
-      border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
-    }
-    .logbook-list {
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding-right: 4px;
-      max-height: 38vh;
-    }
-    .logbook-list::-webkit-scrollbar {
-      width: 4px;
-    }
-    .logbook-list::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 2px;
-    }
-    .logbook-entry {
-      font-size: 11.5px;
-      line-height: 1.55;
-      color: #cbd5e1;
-      background: rgba(255, 255, 255, 0.04);
-      padding: 7px 11px;
-      border-radius: 8px;
-      border-left: 2.5px solid #38bdf8;
-      animation: fadeInEntry 0.35s ease;
-    }
-    @keyframes fadeInEntry {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .log-time {
-      font-weight: 700;
-      color: #38bdf8;
-      margin-right: 6px;
-      font-family: monospace;
-      font-size: 11px;
-    }
-    .log-badge {
-      font-size: 9.5px;
-      background: rgba(56, 189, 248, 0.2);
-      color: #38bdf8;
-      padding: 1px 5px;
-      border-radius: 4px;
-      margin-right: 5px;
-    }
   </style>
 </head>
 <body>
   <canvas id="stage"></canvas>
 
-  <!-- [피드백 4] 승객 1인칭 시점 지하철 창문 오버레이 (창틀, 유리 반사, 햇살 림, 미세 텍스처, 빗물 FX) -->
+  <!-- [피드백 4] 승객 1인칭 시점 지하철 창문 오버레이 (창틀, 유리 반사, 햇살 림, 미세 텍스처) -->
   <div id="subway-window-overlay">
     <div class="window-bezel-top"></div>
     <div class="window-glass-pane">
-      <canvas id="window-rain-canvas"></canvas>
       <div class="window-scratch-texture"></div>
     </div>
     <div class="window-bezel-sides"></div>
@@ -1816,11 +1642,11 @@
 
   <!-- 상단 중앙: 시점 안내 프롬프트 -->
   <div id="top-guidance">
-    <span id="guidance-car">3호차</span> · H 감상 모드 · L 로그북 · V 시점 전환 · WASD 이동
+    <span id="guidance-car">3호차</span> · WASD 이동 · 우클릭 둘러보기 · V 시점 전환 · E 앉기
   </div>
 
-  <!-- 상단 우측: 시각 & 날씨 카드 -->
-  <div id="card-time" title="클릭하여 환경 패널 토글 (단축키: K 시간대, W 날씨패널)">
+  <!-- 상단 우측: 시각 & 날씨 카드 (단축키 K: 시간대, L: 날씨) -->
+  <div id="card-time" title="클릭하여 환경 패널 토글 (단축키: K 시간대, L 날씨)">
     <span id="time-badge"><span id="time-icon">🌅</span> <span id="clock-display">07:30</span></span>
     <span id="weather-badge" style="color:#94a3b8"><span id="weather-icon">☀️</span> <span id="weather-display">맑음</span></span>
   </div>
@@ -1836,28 +1662,11 @@
     </div>
     <div class="env-row">
       <span class="env-label">날씨</span>
-      <button class="env-btn active" data-weather="clear" title="맑음">☀️ 맑음</button>
-      <button class="env-btn" data-weather="cloudy" title="흐림">☁️ 흐림</button>
-      <button class="env-btn" data-weather="rain" title="비 & 빗소리">🌧️ 비</button>
-      <button class="env-btn" data-weather="fog" title="물안개">🌫️ 안개</button>
-      <button class="env-btn" data-weather="snow" title="눈">❄️ 눈</button>
-    </div>
-  </div>
-
-  <!-- 독서 / 한강선 로그북 패널 -->
-  <div id="card-logbook">
-    <div class="logbook-header">
-      <div class="logbook-title">📖 한강선 운행 로그북</div>
-      <button class="logbook-close-btn" id="btn-logbook-close" title="닫기 (L)">✕</button>
-    </div>
-    <div class="logbook-quote">“책을 읽다 고개를 들면, 한강선이 지나가고 있다.”</div>
-    <div class="logbook-list" id="logbook-list">
-      <div class="logbook-entry">
-        <span class="log-time">07:30</span><span class="log-badge">출발</span>강변역 출발. 객실 조명 정상. 승객 수 0명.
-      </div>
-      <div class="logbook-entry">
-        <span class="log-time">07:33</span><span class="log-badge">운행</span>잠실철교 진입. 창밖으로 잔잔한 한강 물결이 길게 지나간다.
-      </div>
+      <button class="env-btn active" data-weather="clear" title="맑음 (단축키 L)">☀️ 맑음</button>
+      <button class="env-btn" data-weather="cloudy" title="흐림 (단축키 L)">☁️ 흐림</button>
+      <button class="env-btn" data-weather="rain" title="비 & 빗소리 (단축키 L)">🌧️ 비</button>
+      <button class="env-btn" data-weather="fog" title="물안개 (단축키 L)">🌫️ 안개</button>
+      <button class="env-btn" data-weather="snow" title="눈 (단축키 L)">❄️ 눈</button>
     </div>
   </div>
 
@@ -1882,17 +1691,16 @@
   <div id="passenger-footer">
     <div class="footer-left">
       <div>
-        <span class="footer-cam-btn" data-cam="1">1 운전실</span> ·
-        <span class="footer-cam-btn active" data-cam="2">2 객실 창가</span> ·
+        <span class="footer-cam-btn" data-cam="1">1 직접 운전</span> ·
+        <span class="footer-cam-btn active" data-cam="2">2 승객</span> ·
         <span class="footer-cam-btn" data-cam="3">3 외부</span> ·
         <span class="footer-cam-btn" data-cam="4">4 선로 옆</span> ·
         <span class="footer-cam-btn" id="btn-toggle-v" style="color:#38bdf8; font-weight:bold;">[V] 시점 전환</span> ·
-        <span class="footer-cam-btn" id="btn-ambient-mode" style="color:#67e8f9; font-weight:bold;">[H] 감상 모드</span> ·
-        <span class="footer-cam-btn" id="btn-logbook-toggle" style="color:#fde047; font-weight:bold;">[L] 로그북</span> ·
         <span class="footer-cam-btn" id="btn-cinematic" style="color:#f59e0b; font-weight:bold;">[C] 시네마틱</span> ·
         <span class="footer-cam-btn" id="btn-bgm-desktop" style="color:#a78bfa; font-weight:bold;">[B] BGM</span>
       </div>
-      <div style="color:#64748b">H 감상 모드 토글 · L 로그북 토글 · PgUp / PgDn 객차 이동 · Shift 빠르게 걷기</div>
+      <div style="color:#64748b">PgUp / PgDn 객차 이동</div>
+      <div style="color:#64748b">Shift 빠르게 걷기</div>
     </div>
     <div style="color:#64748b">
       F1 도움말 · ESC 메뉴
@@ -1992,17 +1800,16 @@
   <!-- 모바일: 액션 버튼 패널 -->
   <div id="mobile-action-bar">
     <button class="mob-btn accent" id="mob-btn-v">👁️ 시점 전환</button>
-    <button class="mob-btn" id="mob-btn-ambient" style="border-color:#38bdf8; color:#38bdf8;">☕ 감상 모드</button>
-    <button class="mob-btn" id="mob-btn-logbook" style="border-color:#fde047; color:#fde047;">📖 로그북</button>
     <button class="mob-btn green" id="mob-btn-e">🪑 앉기/서기</button>
     <button class="mob-btn" id="mob-btn-t">🚪 문 조작</button>
     <button class="mob-btn" id="mob-btn-k">🕐 시간 변경</button>
+    <button class="mob-btn" id="mob-btn-l">🌤️ 날씨 변경</button>
     <button class="mob-btn" id="mob-btn-cine">🎬 시네마틱</button>
     <button class="mob-btn" id="mob-btn-bgm">🎵 BGM</button>
   </div>
 
   <!-- 시작 인트로 모달 -->
-  <div id="sightseeing-badge">감상 모드 · 화면을 터치하면 조작 UI가 돌아옵니다</div>
+  <div id="sightseeing-badge">구경 모드 · 화면을 터치하면 조작 UI가 돌아옵니다</div>
 
   <!-- 시네마틱 자막 (시점/환경이 바뀔 때만 잠깐) -->
   <div id="cine-caption"></div>
@@ -2032,13 +1839,12 @@
   <div id="intro">
     <div id="intro-card">
       <div style="font-size:12px; font-weight:800; color:var(--ui-green); letter-spacing:1px; margin-bottom:8px;">HAN RIVER LINE · 한강선</div>
-      <h1 style="margin:0 0 12px; font-size:24px; font-weight:900;">한강선 감상형 시뮬레이터</h1>
+      <h1 style="margin:0 0 12px; font-size:24px; font-weight:900;">한강 잠실철교 3D 시뮬레이션</h1>
       <p style="font-size:13.5px; line-height:1.6; color:#94a3b8; margin:0 0 18px;">
-        지하철 안에서 책을 읽다가 문득 고개를 들어 창밖의 한강을 바라보는 기분을 담았습니다.<br />
-        <strong>H 키로 감상 모드</strong>를 켜고 멍하니 풍경을 바라보거나, <strong>L 키로 한강선 운행 로그북</strong>을 열어보세요.<br />
-        <span style="font-size:12px; color:#cbd5e1;">(V 키 시점 전환 · 직접 운전 또는 승객 모드 자유 이동)</span>
+        언리얼 엔진급 그래픽으로 재탄생한 서울 지하철 2호선 한강 횡단 시뮬레이션입니다.<br />
+        <strong>WASD / 조이스틱으로 자유롭게 객실을 걸어 다니며</strong>, <strong>V 키 또는 시점 전환 버튼으로 외부/선로변 시점을 전환</strong>할 수 있습니다.
       </p>
-      <button id="start">🚇 한강선 열차 탑승하기</button>
+      <button id="start">🚇 열차 탑승 및 시뮬레이션 시작</button>
     </div>
   </div>
 
@@ -2219,48 +2025,12 @@
     const actionHint = document.querySelector("#action-hint");
     const cardAlignHud = document.querySelector("#card-align-hud");
 
-    // ------------------------------------------------------------
-    // 차분한 감성형 한강선 팔레트 및 접지 그림자 시스템
-    // ------------------------------------------------------------
-    const PALETTE = {
-      sky: 0x9fc3d5,
-      fog: 0x9fc3d5,
-      concrete: 0xaeb4b8,
-      concreteDark: 0x9fa7ad,
-      concreteLight: 0xb8bcc0,
-      road: 0x70777d,
-      roadDark: 0x626a70,
-      grass: 0x9bbd91,
-      water: 0x5f9cad,
-      waterDeep: 0x224b57,
-      trainBody: 0x2b353b,
-      trainDark: 0x161f26,
-      trainLine: 0x009b44,
-      shadow: 0x000000
-    };
-
-    function createFakeShadow(width, height, opacity = 0.24, isRound = false) {
-      const geo = isRound
-        ? new THREE.CircleGeometry(Math.max(width, height) / 2, 16)
-        : new THREE.PlaneGeometry(width, height);
-      const mat = new THREE.MeshBasicMaterial({
-        color: PALETTE.shadow,
-        transparent: true,
-        opacity: opacity,
-        depthWrite: false
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.renderOrder = 1;
-      return mesh;
-    }
-
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(PALETTE.sky);
-    scene.fog = new THREE.Fog(PALETTE.fog, 500, 4800);
+    scene.background = new THREE.Color(0x8ec2eb);
+    scene.fog = new THREE.Fog(0x8ec2eb, 1600, 7500);
     window.scene = scene;
 
-    const camera = new THREE.PerspectiveCamera(54, window.innerWidth / window.innerHeight, 0.1, 8000);
+    const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 8000);
     camera.up.set(0, 1, 0);
     window.camera = camera;
 
@@ -2280,9 +2050,10 @@
         shadowType: mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap,
         bloomScale: mobile ? 0.5 : 1.0,     // 블룸 렌더타깃 해상도 배율
         antialias: !mobile,                  // 모바일은 MSAA 대신 DPR 확보
-        rainCount: mobile ? 1500 : 4500,     // 선분 기반 고효율 streak
-        snowCount: mobile ? 1000 : 3200,
+        rainCount: mobile ? 1800 : 6500,
+        snowCount: mobile ? 1200 : 4000,
         // 승객 시점에서 유지할 인접 호차 범위 (나머지 인테리어는 숨김).
+        // 통로문이 열려 있어 앞뒤로 여러 칸이 들여다보이므로 여유를 둔다.
         interiorRadius: mobile ? 2 : 3
       };
     })();
@@ -2291,7 +2062,7 @@
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: QUALITY.antialias, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY.maxPixelRatio));
-    renderer.setClearColor(PALETTE.fog, 1.0);
+    renderer.setClearColor(0x8ec2eb, 1.0);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.98;
@@ -2333,14 +2104,14 @@
     // 3. 하늘 & 배경: 절차적 스카이돔 + 3D 구름 시스템
     // ------------------------------------------------------------
 
-    // 스카이돔 (대기 산란 & 은은한 수평선 헤이즈 셰이더)
+    // 스카이돔 (그라디언트 하늘 셰이더)
     const skyDomeMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       depthWrite: false,
       uniforms: {
-        uTopColor:    { value: new THREE.Color(0x2a5c88) },
-        uHorizonColor:{ value: new THREE.Color(PALETTE.fog) },
-        uGroundColor: { value: new THREE.Color(0x4a5850) },
+        uTopColor:    { value: new THREE.Color(0x2a6eb0) },
+        uHorizonColor:{ value: new THREE.Color(0x8ec2eb) },
+        uGroundColor: { value: new THREE.Color(0x6a7a5a) },
         uSunDir:      { value: new THREE.Vector3(0.5, 0.8, 0.4).normalize() },
         uSunColor:    { value: new THREE.Color(1.0, 0.96, 0.88) },
         uSunGlow:     { value: 180.0 },
@@ -2363,7 +2134,6 @@
         uniform vec3 uSunColor;
         uniform float uSunGlow;
         uniform float uTime;
-        uniform float uCloudCover;
         uniform float uMoonPhase;
         varying vec3 vWorldDir;
 
@@ -2377,35 +2147,23 @@
           vec3 dir = normalize(vWorldDir);
           float upY = dir.y;
 
-          // 부드러운 대기 레일리 산란 그라디언트
-          float t = smoothstep(-0.05, 0.78, upY);
-          vec3 skyColor = mix(uHorizonColor, uTopColor, pow(t, 1.3));
-
-          // 수평선 부드러운 대기 헤이즈 (안개와 하늘의 경계 제거)
-          float haze = exp(-max(upY, 0.0) * 8.5);
-          vec3 hazeCol = mix(uHorizonColor, uSunColor, 0.18);
-          skyColor = mix(skyColor, hazeCol, haze * 0.42);
+          // 부드러운 대기 산란 그라디언트 (연산 2줄)
+          float t = clamp(upY * 1.5 + 0.08, 0.0, 1.0);
+          vec3 skyColor = mix(uHorizonColor, uTopColor, t * t);
 
           if (upY < 0.0) {
-            skyColor = mix(uHorizonColor, uGroundColor, clamp(-upY * 3.5, 0.0, 1.0));
+            skyColor = mix(uHorizonColor, uGroundColor, clamp(-upY * 4.0, 0.0, 1.0));
           }
 
-          // 태양 디스크 & 미에 산란 광륜
+          // 태양 디스크 & 광륜 (코로나)
           float sunDot = max(0.0, dot(dir, normalize(uSunDir)));
           if (uMoonPhase < 0.6) {
             float sunDisc = pow(sunDot, uSunGlow);
-            float corona = pow(sunDot, 6.0) * 0.28;
-            float mie = pow(sunDot, 18.0) * 0.22;
-            skyColor += uSunColor * (sunDisc * 2.8 + corona + mie);
+            float corona = pow(sunDot, 6.0) * 0.35;
+            skyColor += uSunColor * (sunDisc * 3.2 + corona);
           }
 
-          // 흐림/비 날씨: 하늘 전체를 부드럽게 감싸는 오버캐스트 톤
-          if (uCloudCover > 0.05) {
-            vec3 overcastCol = mix(uHorizonColor, vec3(0.50, 0.56, 0.62), 0.35);
-            skyColor = mix(skyColor, overcastCol, clamp(uCloudCover * 0.72, 0.0, 0.95));
-          }
-
-          // 밤: 별과 달빛
+          // 밤: 별과 달빛 (극소 연산)
           if (uMoonPhase > 0.25) {
             float nightT = smoothstep(0.25, 0.85, uMoonPhase);
             vec2 starUV = dir.xz / (abs(dir.y) + 0.02) * 6.0;
@@ -2428,8 +2186,8 @@
     const skyDome = new THREE.Mesh(new THREE.SphereGeometry(5500, 24, 14), skyDomeMat);
     scene.add(skyDome);
 
-    // 안개: 먼 건물과 강 건너편이 시야에서 부드럽게 용해되는 깊이감
-    scene.fog = new THREE.Fog(PALETTE.fog, 450, 4400);
+    // 안개
+    scene.fog = new THREE.Fog(0x8ec2eb, 1600, 7500);
 
     // 3D 구름 메시 (구름당 3~4개 스피어로 최적화하여 60fps 보장)
     const cloudGroup = new THREE.Group();
@@ -2506,12 +2264,9 @@
       uTime: { value: 0 },
       uSunDir: { value: sunLight.position.clone().normalize() },
       uSunCol: { value: new THREE.Color(1.0, 0.96, 0.88) },
-      uSkyCol: { value: new THREE.Color(0.62, 0.77, 0.84) },
-      uDeepCol: { value: new THREE.Color(0.11, 0.24, 0.27) }, // 차분한 회청록 딥 톤
-      uShallowCol: { value: new THREE.Color(0.32, 0.52, 0.58) }, // 부드러운 얕은 수면 톤
-      uFogColor: { value: new THREE.Color(PALETTE.fog) },
-      uFogNear: { value: 450 },
-      uFogFar: { value: 4400 }
+      uSkyCol: { value: new THREE.Color(0.55, 0.74, 0.94) },
+      uDeepCol: { value: new THREE.Color(0.025, 0.12, 0.19) },
+      uShallowCol: { value: new THREE.Color(0.065, 0.28, 0.35) }
     };
 
     const waterMat = new THREE.ShaderMaterial({
@@ -2590,9 +2345,6 @@
         uniform vec3 uSkyCol;
         uniform vec3 uDeepCol;
         uniform vec3 uShallowCol;
-        uniform vec3 uFogColor;
-        uniform float uFogNear;
-        uniform float uFogFar;
 
         // 회전 기반 비반복 노이즈 샘플러
         vec2 rotate(vec2 v, float a) {
@@ -2603,14 +2355,14 @@
         void main() {
           vec3 viewDir = normalize(cameraPosition - vWorldPos);
 
-          // [거리 기반 감쇠 LOD] - 먼 곳은 잔잔하게, 가까운 곳만 흐름 강조
+          // [피드백 1: 거리 기반 감쇠 LOD] - 먼 곳은 잔잔하게, 가까운 곳만 흐름 강조
           float distFade = clamp(1.0 - (vCamDist - 120.0) / 1400.0, 0.08, 1.0);
 
-          // [물결 스케일 유기적 혼합 + 회전으로 반복감 제거]
+          // [피드백 1: 물결 스케일 3개 유기적 혼합 + 회전으로 반복감 제거]
           vec2 p = vWorldPos.xz * 0.18;
           float t = uTime * 0.9;
 
-          // 레이어 1: 완만한 본류 흐름
+          // 레이어 1: 완만한 흐름
           vec2 p1 = rotate(p, 0.32) + vec2(t * 0.8, t * 0.3);
           float n1 = sin(p1.x * 1.4 + p1.y * 0.9);
 
@@ -2627,36 +2379,38 @@
           float perturbZ = (n2 * 0.042 - n1 * 0.025 + n3 * 0.016 * distFade);
           vec3 normal = normalize(vNormalW + vec3(perturbX, 0.0, perturbZ) * (1.8 + distFade * 2.2));
 
-          // [차분한 회청록 수심/강물 톤]
+          // [피드백 1: 투명도 및 수심/강물 톤 미세 랜덤화]
           float waveTone = smoothstep(-0.3, 0.35, vWaveHeight) + n1 * 0.08;
           vec3 waterCol = mix(uDeepCol, uShallowCol, clamp(waveTone, 0.0, 1.0));
-          waterCol += vec3(0.008, 0.020, 0.016) * (1.0 - distFade * 0.4);
+          // 자연스러운 한강 퇴적토 미네랄 미세 틴트
+          waterCol += vec3(0.008, 0.022, 0.018) * (1.0 - distFade * 0.4);
 
-          // 피하 산란 (Subsurface Scattering)
-          float sss = pow(clamp(dot(viewDir, -uSunDir), 0.0, 1.0), 3.5) * (0.35 + 0.45 * waveTone);
-          waterCol += (uSunCol * 0.20 + vec3(0.02, 0.14, 0.12)) * sss * 0.4;
+          // 피하 산란(Subsurface Scattering)
+          float sss = pow(clamp(dot(viewDir, -uSunDir), 0.0, 1.0), 3.5) * (0.45 + 0.55 * waveTone);
+          waterCol += (uSunCol * 0.28 + vec3(0.02, 0.18, 0.15)) * sss * 0.5;
 
-          // 프레넬 반사 (Schlick Fresnel) - 눈부시지 않은 은은한 하늘 반사
-          float fresnel = 0.04 + 0.96 * pow(clamp(1.0 - max(dot(normal, viewDir), 0.0), 0.0, 1.0), 5.0);
-          vec3 skyReflection = mix(uSkyCol, uSkyCol * 0.75, clamp(normal.y, 0.0, 1.0));
-          vec3 finalWater = mix(waterCol, skyReflection, fresnel * 0.58);
+          // 프레넬 반사 (Schlick Fresnel)
+          float fresnel = 0.03 + 0.97 * pow(clamp(1.0 - max(dot(normal, viewDir), 0.0), 0.0, 1.0), 5.0);
+          vec3 skyReflection = mix(uSkyCol, uSkyCol * 0.65, clamp(normal.y, 0.0, 1.0));
+          vec3 finalWater = mix(waterCol, skyReflection, fresnel * 0.88);
 
-          // [낮은 콘트라스트 부드러운 물결 하이라이트 & 윤슬]
+          // [피드백 1: 물 위에 약하고 은은한 하이라이트 & 윤슬]
           vec3 halfVec = normalize(uSunDir + viewDir);
           float nDotH = clamp(dot(normal, halfVec), 0.0, 1.0);
 
-          float broadSpecular = pow(nDotH, 52.0) * (0.38 + 0.28 * distFade);
-          float glintNoise = sin(p2.x * 4.0 + t * 2.0) * cos(p3.y * 3.5 - t * 1.6);
-          float glintMask = smoothstep(0.42, 0.88, glintNoise);
-          float microGlint = pow(nDotH, 140.0) * glintMask * 1.0 * distFade;
+          // 광활한 태양 리본 하이라이트 (과하지 않고 고급스러운 세기)
+          float broadSpecular = pow(nDotH, 65.0) * (0.8 + 0.6 * distFade);
 
-          finalWater += (broadSpecular * uSunCol * 0.48 + microGlint * uSunCol * 0.52);
+          // 섬세한 미세 반짝임 (근거리에서만 생동감 있게 맺힘)
+          float glintNoise = sin(p2.x * 4.0 + t * 2.5) * cos(p3.y * 3.5 - t * 2.0);
+          float glintMask = smoothstep(0.35, 0.85, glintNoise);
+          float microGlint = pow(nDotH, 180.0) * glintMask * 2.8 * distFade;
 
-          // [원경 안개 페이드: 먼 수면과 강 건너편이 지평선 fog로 자연스럽게 용해]
-          float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
-          finalWater = mix(finalWater, uFogColor, fogFactor);
+          finalWater += (broadSpecular * uSunCol * 0.85 + microGlint * uSunCol * 1.1);
+          finalWater = clamp(finalWater, vec3(0.0), vec3(2.5));
 
-          float alpha = mix(0.92, 1.0, fogFactor);
+          // 프레넬 각도에 따른 자연스러운 수면 투명도 (0.88 ~ 0.98)
+          float alpha = mix(0.88, 0.98, fresnel);
           gl_FragColor = vec4(finalWater, alpha);
         }
       `
@@ -2726,11 +2480,11 @@
     // ------------------------------------------------------------
     // 6. 2호선 복선 순환 철교 & 고가 선로 (16m 높이 & 전차선 & 보행로)
     // ------------------------------------------------------------
-    const matConcreteBridge = new THREE.MeshStandardMaterial({ color: PALETTE.concrete, roughness: 0.85 });
-    const matRailSteel = new THREE.MeshStandardMaterial({ color: 0x8a929b, metalness: 0.85, roughness: 0.25 });
-    const matBallastGravel = new THREE.MeshStandardMaterial({ color: 0x3d4349, roughness: 0.95 });
+    const matConcreteBridge = new THREE.MeshStandardMaterial({ color: 0x5a636e, roughness: 0.82 });
+    const matRailSteel = new THREE.MeshStandardMaterial({ color: 0x828b94, metalness: 0.88, roughness: 0.2 });
+    const matBallastGravel = new THREE.MeshStandardMaterial({ color: 0x484c52, roughness: 0.95 });
     const matCatenarySteel = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.6 });
-    const matGreenRail = new THREE.MeshStandardMaterial({ color: PALETTE.trainLine, roughness: 0.45 });
+    const matGreenRail = new THREE.MeshStandardMaterial({ color: 0x00a84d, roughness: 0.45 });
     const matStainlessSteel = new THREE.MeshStandardMaterial({ color: 0xd8dde3, metalness: 0.88, roughness: 0.15 });
 
     function makeBridgeRibbon(width, yOff, mat, xOff = 0) {
@@ -2814,15 +2568,6 @@
     // 교량 콘크리트 상판 & 도상
     scene.add(makeBridgeRibbon(10.8, -0.4, matConcreteBridge, 0));
     scene.add(makeBridgeRibbon(9.4, -0.15, matBallastGravel, 0));
-
-    // 고가 선로 하부 지면 접지 그림자 (Fake Shadow Ribbon: 16m 아래 지면에 투영)
-    const matViaductShadow = new THREE.MeshBasicMaterial({
-      color: PALETTE.shadow,
-      transparent: true,
-      opacity: 0.22,
-      depthWrite: false
-    });
-    scene.add(makeBridgeRibbon(12.5, -11.45, matViaductShadow, 0));
 
     // 외선/내선 콘크리트 침목 도상 (폭 2.8m)
     scene.add(makeBridgeRibbon(2.8, 0.005, matSleeper, 1.6));
@@ -3098,140 +2843,96 @@
     // 7. 한강 양안 사실적 지형 & 프로시저럴 지표면 셰이더 (도심 아스팔트 + 잔디 + 보도)
     // ------------------------------------------------------------
 
-    // 도시 지면: 균열/보도블럭 절차적 셰이더 (원경 안개 페이드 포함)
+    // 도시 지면: 균열/보도블럭 절차적 셰이더 (단색 제거)
     const groundShader = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uFogColor: { value: new THREE.Color(PALETTE.fog) },
-        uFogNear: { value: 450 },
-        uFogFar: { value: 4400 }
-      },
+      uniforms: { uTime: { value: 0 } },
       vertexShader: `
         varying vec2 vUv;
         varying vec3 vWorldPos;
-        varying float vCamDist;
         void main() {
           vUv = uv;
           vec4 wp = modelMatrix * vec4(position, 1.0);
           vWorldPos = wp.xyz;
-          vCamDist = length(cameraPosition.xz - wp.xz);
           gl_Position = projectionMatrix * viewMatrix * wp;
         }
       `,
       fragmentShader: `
         varying vec2 vUv;
         varying vec3 vWorldPos;
-        varying float vCamDist;
-        uniform vec3 uFogColor;
-        uniform float uFogNear;
-        uniform float uFogFar;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main() {
           vec2 p = vWorldPos.xz;
 
-          // 아스팔트 베이스 (차분한 회색 톤으로 정돈)
+          // 아스팔트 베이스 (미세 노이즈 입혀서 단색 제거)
           vec2 grain = floor(p * 0.9);
-          float n = hash(grain) * 0.06 - 0.03;
-          vec3 asphalt = vec3(0.44, 0.46, 0.48) + n;
+          float n = hash(grain) * 0.08 - 0.04;
+          vec3 asphalt = vec3(0.52, 0.53, 0.55) + n;
 
           // 보도블럭 격자 (1.2m 단위)
           vec2 tile = fract(p / 1.2);
           float groove = step(0.94, tile.x) + step(0.94, tile.y);
-          asphalt = mix(asphalt, vec3(0.34, 0.36, 0.38), groove * 0.45);
+          asphalt = mix(asphalt, vec3(0.38, 0.39, 0.41), groove * 0.45);
 
           // 도로 차선 마킹 (16m 간격 흰 점선)
           float laneX = step(0.48, fract(p.x / 4.0)) * step(fract(p.x / 4.0), 0.52);
           float dashedZ = step(0.35, fract(p.y / 16.0)) * step(fract(p.y / 16.0), 0.65);
-          asphalt = mix(asphalt, vec3(0.88, 0.88, 0.86), laneX * dashedZ * 0.7);
+          asphalt = mix(asphalt, vec3(0.95, 0.95, 0.92), laneX * dashedZ * 0.7);
 
           // 균열 (랜덤 셀 경계)
           vec2 crackCell = floor(p * 0.25);
           float crack = hash(crackCell + vec2(7.3, 2.1));
           if (crack > 0.82) {
             float crackLine = abs(fract(p.x * 0.25) - 0.5) * 2.0;
-            asphalt = mix(asphalt, vec3(0.28, 0.30, 0.32), step(crackLine, 0.06) * 0.6);
+            asphalt = mix(asphalt, vec3(0.32, 0.33, 0.34), step(crackLine, 0.06) * 0.6);
           }
 
           // 간접광 음영 (AO 효과 흉내)
           float ao = 0.88 + hash(floor(p * 0.05)) * 0.12;
-          vec3 finalGround = asphalt * ao;
-
-          // 원경 안개 페이드
-          float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
-          finalGround = mix(finalGround, uFogColor, fogFactor);
-
-          gl_FragColor = vec4(finalGround, 1.0);
+          gl_FragColor = vec4(asphalt * ao, 1.0);
         }
       `
     });
 
-    // 공원 잔디: 풀잎 질감 셰이더 (채도 낮추고 부드러운 연녹색 + 안개 페이드)
+    // 공원 잔디: 풀잎 질감 셰이더
     const grassShader = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uFogColor: { value: new THREE.Color(PALETTE.fog) },
-        uFogNear: { value: 450 },
-        uFogFar: { value: 4400 }
-      },
+      uniforms: { uTime: { value: 0 } },
       vertexShader: `
         varying vec3 vWorldPos;
-        varying float vCamDist;
         void main() {
           vec4 wp = modelMatrix * vec4(position, 1.0);
           vWorldPos = wp.xyz;
-          vCamDist = length(cameraPosition.xz - wp.xz);
           gl_Position = projectionMatrix * viewMatrix * wp;
         }
       `,
       fragmentShader: `
         varying vec3 vWorldPos;
-        varying float vCamDist;
-        uniform vec3 uFogColor;
-        uniform float uFogNear;
-        uniform float uFogFar;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main() {
           vec2 p = vWorldPos.xz;
-          // 풀잎 클러스터 노이즈 (채도 낮은 차분한 녹음)
-          float n1 = hash(floor(p * 3.0)) * 0.08 - 0.04;
-          float n2 = hash(floor(p * 0.5) + vec2(33.0)) * 0.06;
-          vec3 grass = vec3(0.38 + n1, 0.49 + n1 + n2, 0.35 + n2 * 0.5);
-          // 발자국 경로 (부드러운 소로)
+          // 풀잎 클러스터 노이즈
+          float n1 = hash(floor(p * 3.0)) * 0.12 - 0.06;
+          float n2 = hash(floor(p * 0.5) + vec2(33.0)) * 0.08;
+          vec3 grass = vec3(0.28 + n1, 0.62 + n1 + n2, 0.22 + n2 * 0.5);
+          // 발자국 경로 (약간 짙은 소로)
           float path = step(0.48, fract(p.x / 6.0)) * step(fract(p.x / 6.0), 0.52);
-          grass = mix(grass, vec3(0.42, 0.46, 0.33), path * 0.35);
-
-          // 원경 안개 페이드
-          float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
-          grass = mix(grass, uFogColor, fogFactor);
-
+          grass = mix(grass, vec3(0.38, 0.52, 0.28), path * 0.4);
           gl_FragColor = vec4(grass, 1.0);
         }
       `
     });
 
-    // 고속도로/도로 셰이더 (안개 페이드 포함)
+    // 고속도로/도로 셰이더
     const highwayShader = new THREE.ShaderMaterial({
-      uniforms: {
-        uFogColor: { value: new THREE.Color(PALETTE.fog) },
-        uFogNear: { value: 450 },
-        uFogFar: { value: 4400 }
-      },
       vertexShader: `
         varying vec3 vWorldPos;
-        varying float vCamDist;
         void main() {
           vec4 wp = modelMatrix * vec4(position, 1.0);
           vWorldPos = wp.xyz;
-          vCamDist = length(cameraPosition.xz - wp.xz);
           gl_Position = projectionMatrix * viewMatrix * wp;
         }
       `,
       fragmentShader: `
         varying vec3 vWorldPos;
-        varying float vCamDist;
-        uniform vec3 uFogColor;
-        uniform float uFogNear;
-        uniform float uFogFar;
         float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         void main() {
           vec2 p = vWorldPos.xz;
@@ -3240,165 +2941,17 @@
           // 차선 흰 점선
           float lane = step(0.47, fract(p.x / 3.6)) * step(fract(p.x / 3.6), 0.53);
           float dash = step(0.2, fract(p.y / 12.0)) * step(fract(p.y / 12.0), 0.6);
-          road = mix(road, vec3(0.85, 0.85, 0.83), lane * dash * 0.85);
+          road = mix(road, vec3(0.9, 0.9, 0.88), lane * dash * 0.85);
           // 가드레일 그림자선
           float rail = step(0.99, fract(p.x / 3.6 + 0.5)) ;
-          road = mix(road, vec3(0.32, 0.32, 0.32), rail * 0.5);
-
-          // 원경 안개 페이드
-          float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
-          road = mix(road, uFogColor, fogFactor);
-
+          road = mix(road, vec3(0.35, 0.35, 0.35), rail * 0.5);
           gl_FragColor = vec4(road, 1.0);
         }
       `
     });
 
-    const matEmbankment = new THREE.MeshStandardMaterial({ color: 0xa8a294, roughness: 0.92, metalness: 0.0 });
-    const matTrackRed = new THREE.MeshStandardMaterial({ color: 0x9e4338, roughness: 0.85 });
-
-    // ------------------------------------------------------------
-    // 한강 둔치 Codrops Fluffy Grass 풍성한 잔디/억새 인스턴싱 시스템
-    // ------------------------------------------------------------
-    const grassPlaneA = new THREE.PlaneGeometry(1.3, 1.2);
-    grassPlaneA.translate(0, 0.6, 0);
-    const grassPlaneB = new THREE.PlaneGeometry(1.3, 1.2);
-    grassPlaneB.translate(0, 0.6, 0);
-    grassPlaneB.rotateY(Math.PI / 2);
-
-    const grassTuftGeo = new THREE.BufferGeometry();
-    const posA = grassPlaneA.attributes.position.array;
-    const posB = grassPlaneB.attributes.position.array;
-    const uvA = grassPlaneA.attributes.uv.array;
-    const uvB = grassPlaneB.attributes.uv.array;
-    const combinedPos = new Float32Array(posA.length + posB.length);
-    combinedPos.set(posA, 0);
-    combinedPos.set(posB, posA.length);
-    const combinedUv = new Float32Array(uvA.length + uvB.length);
-    combinedUv.set(uvA, 0);
-    combinedUv.set(uvB, uvA.length);
-    grassTuftGeo.setAttribute("position", new THREE.BufferAttribute(combinedPos, 3));
-    grassTuftGeo.setAttribute("uv", new THREE.BufferAttribute(combinedUv, 2));
-
-    const grassIndexA = grassPlaneA.index ? grassPlaneA.index.array : new Uint16Array([0,1,2, 0,2,3]);
-    const grassIndexB = grassPlaneB.index ? grassPlaneB.index.array : new Uint16Array([0,1,2, 0,2,3]);
-    const combinedIdx = new Uint16Array(grassIndexA.length + grassIndexB.length);
-    combinedIdx.set(grassIndexA, 0);
-    for (let k = 0; k < grassIndexB.length; k++) {
-      combinedIdx[grassIndexA.length + k] = grassIndexB[k] + 4;
-    }
-    grassTuftGeo.setIndex(new THREE.BufferAttribute(combinedIdx, 1));
-
-    const grassBladeShader = new THREE.ShaderMaterial({
-      side: THREE.DoubleSide,
-      uniforms: {
-        uTime: { value: 0 },
-        uFogColor: { value: new THREE.Color(PALETTE.fog) },
-        uFogNear: { value: 450 },
-        uFogFar: { value: 4400 }
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        varying vec3 vColor;
-        varying float vCamDist;
-        uniform float uTime;
-
-        void main() {
-          vUv = uv;
-          #ifdef USE_INSTANCING_COLOR
-            vColor = instanceColor;
-          #else
-            vColor = vec3(0.48, 0.60, 0.44);
-          #endif
-
-          vec4 instancePos = instanceMatrix * vec4(position, 1.0);
-
-          // 상단 바람 흔들림 (Fluffy Grass wind sway)
-          float wind = sin(uTime * 2.0 + instancePos.x * 0.35 + instancePos.z * 0.25) * 0.16;
-          wind += cos(uTime * 3.4 + instancePos.z * 0.5) * 0.08;
-          instancePos.x += wind * uv.y * 0.75;
-          instancePos.z += wind * uv.y * 0.45;
-
-          vec4 wp = modelMatrix * instancePos;
-          vCamDist = length(cameraPosition.xz - wp.xz);
-          gl_Position = projectionMatrix * viewMatrix * wp;
-        }
-      `,
-      fragmentShader: `
-        varying vec2 vUv;
-        varying vec3 vColor;
-        varying float vCamDist;
-        uniform vec3 uFogColor;
-        uniform float uFogNear;
-        uniform float uFogFar;
-
-        void main() {
-          // 풀잎 실루엣 테이퍼링 (끝으로 갈수록 좁아짐)
-          float shape = abs(vUv.x - 0.5) * 2.0;
-          float taper = 1.05 - vUv.y * 0.8;
-          if (shape > taper) discard;
-
-          // 높이에 따른 그라디언트 (밑동은 흙빛/어두운 잎, 끝단은 밝은 억새/연녹색)
-          vec3 col = mix(vColor * 0.68, vColor * 1.15, vUv.y);
-
-          // 거리 안개 페이드 (원경은 부드럽게 대기 속으로 소멸)
-          float fogFactor = smoothstep(uFogNear, uFogFar, vCamDist);
-          col = mix(col, uFogColor, fogFactor);
-
-          gl_FragColor = vec4(col, 1.0);
-        }
-      `
-    });
-
-    const GRASS_COUNT = 1400;
-    const instancedGrass = new THREE.InstancedMesh(grassTuftGeo, grassBladeShader, GRASS_COUNT);
-    const dummyMat = new THREE.Matrix4();
-    const dummyPos = new THREE.Vector3();
-    const dummyScale = new THREE.Vector3();
-    const dummyRot = new THREE.Quaternion();
-    const dummyEuler = new THREE.Euler();
-
-    const grassPalettes = [
-      new THREE.Color(0x6b8a5e), // 부드러운 초록
-      new THREE.Color(0x56734d), // 깊은 수변 갈대녹
-      new THREE.Color(0x7e9870), // 연녹색 클러스터
-      new THREE.Color(0x948e6c), // 은빛 억새 / 마른 짚 틴트
-      new THREE.Color(0x869177)  // 한강변 물억새 회록색
-    ];
-
-    let gIdx = 0;
-    // 1. 남단 잠실 한강 둔치 (Z: 480 ~ 590, X: -550 ~ 1100)
-    for (let i = 0; i < 700; i++) {
-      const gx = -550 + Math.random() * 1650;
-      const gz = 480 + Math.random() * 105;
-      const gy = 4.50;
-      const sc = 0.75 + Math.random() * 0.65;
-      dummyPos.set(gx, gy, gz);
-      dummyEuler.set(0, Math.random() * Math.PI, 0);
-      dummyRot.setFromEuler(dummyEuler);
-      dummyScale.set(sc, sc * (0.85 + Math.random() * 0.5), sc);
-      dummyMat.compose(dummyPos, dummyRot, dummyScale);
-      instancedGrass.setMatrixAt(gIdx, dummyMat);
-      instancedGrass.setColorAt(gIdx, grassPalettes[Math.floor(Math.random() * grassPalettes.length)]);
-      gIdx++;
-    }
-    // 2. 북단 강변 한강 둔치 (Z: -565 ~ -470, X: -550 ~ 700)
-    for (let i = 0; i < 700; i++) {
-      const gx = -550 + Math.random() * 1250;
-      const gz = -565 + Math.random() * 95;
-      const gy = 4.50;
-      const sc = 0.75 + Math.random() * 0.65;
-      dummyPos.set(gx, gy, gz);
-      dummyEuler.set(0, Math.random() * Math.PI, 0);
-      dummyRot.setFromEuler(dummyEuler);
-      dummyScale.set(sc, sc * (0.85 + Math.random() * 0.5), sc);
-      dummyMat.compose(dummyPos, dummyRot, dummyScale);
-      instancedGrass.setMatrixAt(gIdx, dummyMat);
-      instancedGrass.setColorAt(gIdx, grassPalettes[Math.floor(Math.random() * grassPalettes.length)]);
-      gIdx++;
-    }
-    instancedGrass.instanceMatrix.needsUpdate = true;
-    if (instancedGrass.instanceColor) instancedGrass.instanceColor.needsUpdate = true;
+    const matEmbankment = new THREE.MeshStandardMaterial({ color: 0xb8b0a0, roughness: 0.92, metalness: 0.0 });
+    const matTrackRed = new THREE.MeshStandardMaterial({ color: 0xb34436, roughness: 0.85 });
 
     const terrainGroup = new THREE.Group();
 
@@ -3463,17 +3016,17 @@
     // 개선된 나무 시스템: GLB 로드 + 5종 절쉠적 폴백
     // ============================================================
 
-    // 절차적 나무 생성기 (5종 차분한 감성 색조)
-    const matTrunkA = new THREE.MeshStandardMaterial({ color: 0x42332c, roughness: 0.92 });
-    const matTrunkB = new THREE.MeshStandardMaterial({ color: 0x4e3826, roughness: 0.88 });
-    const matOak    = new THREE.MeshStandardMaterial({ color: 0x385542, roughness: 0.80 });
-    const matOak2   = new THREE.MeshStandardMaterial({ color: 0x44664c, roughness: 0.78 });
-    const matPine   = new THREE.MeshStandardMaterial({ color: 0x2a4434, roughness: 0.78 });
-    const matGinkgo = new THREE.MeshStandardMaterial({ color: 0x82964a, roughness: 0.80 });
-    const matCherry = new THREE.MeshStandardMaterial({ color: 0xd8b2ba, roughness: 0.82 });
-    const matMaple  = new THREE.MeshStandardMaterial({ color: 0xb86c38, roughness: 0.80 });
-    const matMaple2 = new THREE.MeshStandardMaterial({ color: 0xa8502a, roughness: 0.80 });
-    const matBush   = new THREE.MeshStandardMaterial({ color: 0x2d4d38, roughness: 0.85 });
+    // 절쉠적 나무 생성기 (5종)
+    const matTrunkA = new THREE.MeshStandardMaterial({ color: 0x4a3028, roughness: 0.92 });
+    const matTrunkB = new THREE.MeshStandardMaterial({ color: 0x5c3818, roughness: 0.88 });
+    const matOak    = new THREE.MeshStandardMaterial({ color: 0x2a5a30, roughness: 0.78 });
+    const matOak2   = new THREE.MeshStandardMaterial({ color: 0x3d7a42, roughness: 0.76 });
+    const matPine   = new THREE.MeshStandardMaterial({ color: 0x1e4a22, roughness: 0.75 });
+    const matGinkgo = new THREE.MeshStandardMaterial({ color: 0x8db530, roughness: 0.78 });
+    const matCherry = new THREE.MeshStandardMaterial({ color: 0xf4b0c0, roughness: 0.82 });
+    const matMaple  = new THREE.MeshStandardMaterial({ color: 0xe8842a, roughness: 0.78 });
+    const matMaple2 = new THREE.MeshStandardMaterial({ color: 0xd44a1a, roughness: 0.78 });
+    const matBush   = new THREE.MeshStandardMaterial({ color: 0x1e5e28, roughness: 0.85 });
 
     // ------------------------------------------------------------
     // 정적 그룹 인스턴싱 베이크
@@ -4580,21 +4133,19 @@
           float inFloor = fract(v / 3.2);
           float inCol = fract(u / 3.6);
 
-          // 차분한 서울 아파트 외벽 팔레트 (#d6dde2, #cfd8dc, #d8d1c4 등)
+          // 한국 고급 아파트 외벽 (아이보리 화이트 & 네이비/테라코타 밴드)
           float buildingType = hash(vec2(floor(u / 45.0), 17.3));
-          vec3 wallColor = vec3(0.85, 0.88, 0.90);
-          if (buildingType < 0.35) {
-            if (mod(floorId, 7.0) < 1.0) wallColor = vec3(0.42, 0.48, 0.54);
-            else if (inCol < 0.12 || inCol > 0.88) wallColor = vec3(0.78, 0.82, 0.85);
-          } else if (buildingType < 0.70) {
-            wallColor = vec3(0.86, 0.83, 0.79);
-            if (mod(floorId, 5.0) < 1.0) wallColor = vec3(0.60, 0.52, 0.45);
+          vec3 wallColor = vec3(0.92, 0.93, 0.95);
+          if (buildingType < 0.45) {
+            if (mod(floorId, 7.0) < 1.0) wallColor = vec3(0.35, 0.45, 0.55);
+            else if (inCol < 0.12 || inCol > 0.88) wallColor = vec3(0.82, 0.85, 0.88);
           } else {
-            wallColor = vec3(0.80, 0.83, 0.85);
+            wallColor = vec3(0.93, 0.90, 0.84);
+            if (mod(floorId, 5.0) < 1.0) wallColor = vec3(0.68, 0.52, 0.42);
           }
 
           if (inFloor < 0.06 || inFloor > 0.96) {
-            wallColor *= 0.84;
+            wallColor *= 0.82;
           }
 
           bool isWindow = (inFloor > 0.18 && inFloor < 0.84) && (inCol > 0.15 && inCol < 0.85);
@@ -4602,33 +4153,25 @@
 
           if (isWindow) {
             if (inFloor < 0.23 || inFloor > 0.79 || inCol < 0.20 || inCol > 0.80) {
-              col = vec3(0.92, 0.93, 0.95);
+              col = vec3(0.98, 0.98, 1.0);
             } else {
               float rnd = hash(vec2(floorId, colId));
-              if (rnd < 0.14) {
-                // 실내 웜 라이트 (은은한 백열등)
-                col = vec3(0.98, 0.90, 0.70);
-              } else if (rnd < 0.45) {
-                // 창문 팔레트 1 (#5f8fa8)
-                col = vec3(0.37, 0.56, 0.66);
-              } else if (rnd < 0.75) {
-                // 창문 팔레트 2 (#6e9bb2)
-                col = vec3(0.43, 0.61, 0.70);
+              if (rnd < 0.18) {
+                col = vec3(1.0, 0.94, 0.75);
               } else {
-                // 창문 팔레트 3 (#4f7488)
-                col = vec3(0.31, 0.45, 0.53);
+                col = vec3(0.12, 0.22, 0.35);
               }
 
               if (inFloor > 0.23 && inFloor < 0.46) {
                 if (mod(inCol * 28.0, 1.0) < 0.32) {
-                  col = vec3(0.82, 0.86, 0.90);
+                  col = vec3(0.85, 0.90, 0.95);
                 } else {
-                  col = mix(col, vec3(0.35, 0.50, 0.60), 0.4);
+                  col = mix(col, vec3(0.35, 0.55, 0.65), 0.5);
                 }
               }
 
               if (inFloor > 0.23 && inFloor < 0.35 && inCol > 0.55 && inCol < 0.78) {
-                col = vec3(0.72, 0.75, 0.78);
+                col = vec3(0.78, 0.80, 0.82);
               }
             }
           }
@@ -4816,11 +4359,11 @@
       });
     }
 
-    // 5종 차분한 감성 파사드 (추천 팔레트: #d6dde2, #cfd8dc, #d8d1c4, #c8d0d5 / 창문: #5f8fa8, #6e9bb2, #7895a8)
-    const matOfficeGlass  = makeFacadeShader(0.84, 0.87, 0.89, 0.37, 0.56, 0.66); // #d6dde2 베이스
-    const matConcreteComm = makeFacadeShader(0.81, 0.85, 0.86, 0.43, 0.61, 0.70); // #cfd8dc 베이스
-    const matBeigeComplex = makeFacadeShader(0.85, 0.82, 0.77, 0.31, 0.45, 0.53); // #d8d1c4 베이스
-    const matDarkTower    = makeFacadeShader(0.48, 0.51, 0.55, 0.20, 0.30, 0.40);
+    // 4종 파사드 (유리 오피스, 콘크리트 상업, 베이지 주상복합, 어두운 현대 타워)
+    const matOfficeGlass  = makeFacadeShader(0.70, 0.75, 0.80, 0.38, 0.58, 0.72);
+    const matConcreteComm = makeFacadeShader(0.78, 0.76, 0.72, 0.28, 0.38, 0.48);
+    const matBeigeComplex = makeFacadeShader(0.88, 0.84, 0.78, 0.32, 0.50, 0.62);
+    const matDarkTower    = makeFacadeShader(0.38, 0.40, 0.44, 0.22, 0.35, 0.50);
 
     const commercialGroup = new THREE.Group();
     const cbGeo = new THREE.BoxGeometry(1, 1, 1);
@@ -4854,29 +4397,18 @@
 
     function placeCommBlocks(blocks) {
       blocks.forEach(([bx, bz, w, h, d, fi, ry]) => {
-        const mat = facadeMats[fi % facadeMats.length];
-
-        // 건물 바닥 접지 가짜 그림자 패드
-        const shadowPad = createFakeShadow(w + 10, d + 10, 0.24);
-        shadowPad.position.set(bx, 4.53, bz);
-        commercialGroup.add(shadowPad);
-
+        const mat = facadeMats[fi];
         const bld = new THREE.Mesh(cbGeo, mat);
         bld.scale.set(w, h, d);
         bld.position.set(bx, 4.5 + h / 2, bz);
         if (ry) bld.rotation.y = ry;
         commercialGroup.add(bld);
 
-        // 옥상 구조물 1: 환기탑/계단실 박스
+        // 옥상 구조물 (환기탑, 물탱크, 계단실 박스)
         const roofBox = new THREE.Mesh(cbGeo, mat);
-        roofBox.scale.set(w * 0.32, 4.5, d * 0.38);
+        roofBox.scale.set(w * 0.28, 4.5, d * 0.35);
         roofBox.position.set(bx - w * 0.15, 4.5 + h + 2.25, bz + d * 0.1);
         commercialGroup.add(roofBox);
-
-        // 옥상 구조물 2: 물탱크/기계실 실린더 또는 소형 박스
-        const roofTank = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.0, 3.2, 8), mat);
-        roofTank.position.set(bx + w * 0.2, 4.5 + h + 1.6, bz - d * 0.15);
-        commercialGroup.add(roofTank);
       });
     }
 
@@ -5438,28 +4970,22 @@
     function buildSeoulMetroCarExterior(isLeading, isPassengerCar, carIdx) {
       const carGroup = new THREE.Group();
 
-      // 차분한 감성형 열차 외장 재질 (세련된 차콜/회청색 스테인리스 & 딥그린 라인)
-      const matBody = new THREE.MeshStandardMaterial({ color: PALETTE.trainBody, metalness: 0.65, roughness: 0.35 });
-      const matStainlessBead = new THREE.MeshStandardMaterial({ color: 0x3d4952, metalness: 0.75, roughness: 0.25 });
-      const matGreenStripe = new THREE.MeshStandardMaterial({ color: PALETTE.trainLine, roughness: 0.4 });
-      const matDarkGlass = new THREE.MeshStandardMaterial({ color: 0x0a141e, roughness: 0.08, metalness: 0.85, transparent: true, opacity: 0.72 });
-      const matDoorRubber = new THREE.MeshBasicMaterial({ color: PALETTE.trainDark });
-      const matDoorYellow = new THREE.MeshBasicMaterial({ color: 0xeab308 }); // 도어 안전 경고 노란선
+      const matBody = new THREE.MeshStandardMaterial({ color: 0xdce0e4, metalness: 0.72, roughness: 0.28 });
+      const matStainlessBead = new THREE.MeshStandardMaterial({ color: 0xbdc3c7, metalness: 0.85, roughness: 0.2 });
+      const matGreenStripe = new THREE.MeshStandardMaterial({ color: 0x00a84d, roughness: 0.35 });
+      const matDarkGlass = new THREE.MeshStandardMaterial({ color: 0x101b24, roughness: 0.08, metalness: 0.9, transparent: true, opacity: 0.65 });
+      const matDoorRubber = new THREE.MeshBasicMaterial({ color: 0x181818 });
+      const matDoorYellow = new THREE.MeshBasicMaterial({ color: 0xfacc15 }); // 도어 안전 경고 노란선
       const matDoorLamp = new THREE.MeshBasicMaterial({ color: 0xf59e0b }); // 도어 개폐 주황 램프
-      const matBogie = new THREE.MeshStandardMaterial({ color: 0x222930, metalness: 0.75, roughness: 0.5 });
-      const matAirSpring = new THREE.MeshStandardMaterial({ color: 0x14181c, roughness: 0.9 });
-      const matWheel = new THREE.MeshStandardMaterial({ color: 0x202428, metalness: 0.88, roughness: 0.22 });
-      const matBrakeDisc = new THREE.MeshStandardMaterial({ color: 0x7c858e, metalness: 0.90, roughness: 0.18 });
-      const matUnderEquipment = new THREE.MeshStandardMaterial({ color: 0x1c2126, roughness: 0.75 });
-      const matAirTank = new THREE.MeshStandardMaterial({ color: 0x323a42, metalness: 0.6, roughness: 0.4 });
-      const matPantoRed = new THREE.MeshStandardMaterial({ color: 0xc53030, roughness: 0.35 }); // 애자 절연체
-      const matPantoSteel = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.88, roughness: 0.22 });
-      const matLedAmber = new THREE.MeshBasicMaterial({ color: 0xf59e0b }); // LED 행선판
-
-      // 객차 하부 바닥 접지 가짜 그림자 (Fake Shadow Plane)
-      const carShadow = createFakeShadow(3.6, 23.8, 0.32);
-      carShadow.position.set(0, -0.42, 0);
-      carGroup.add(carShadow);
+      const matBogie = new THREE.MeshStandardMaterial({ color: 0x2e343b, metalness: 0.75, roughness: 0.5 });
+      const matAirSpring = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+      const matWheel = new THREE.MeshStandardMaterial({ color: 0x25282c, metalness: 0.9, roughness: 0.18 });
+      const matBrakeDisc = new THREE.MeshStandardMaterial({ color: 0x8a929b, metalness: 0.92, roughness: 0.15 });
+      const matUnderEquipment = new THREE.MeshStandardMaterial({ color: 0x23272b, roughness: 0.7 });
+      const matAirTank = new THREE.MeshStandardMaterial({ color: 0x3d434a, metalness: 0.6, roughness: 0.4 });
+      const matPantoRed = new THREE.MeshStandardMaterial({ color: 0xd32f2f, roughness: 0.3 }); // 애자 절연체
+      const matPantoSteel = new THREE.MeshStandardMaterial({ color: 0xb0bec5, metalness: 0.9, roughness: 0.2 });
+      const matLedAmber = new THREE.MeshBasicMaterial({ color: 0xffa000 }); // LED 행선판
 
       if (!isPassengerCar) {
         // 일반 객차 외벽
@@ -5899,36 +5425,12 @@
     // 10. 시점 시스템 & V 키 / WASD 이동 시스템 (사용자 요청 완벽 대응)
     // ------------------------------------------------------------
     let viewMode = 2; // 기본: 2 승객 1인칭
-    // 시작 시점: 차창 밖 한강과 수면이 평화롭게 펼쳐지는 앵글
-    let orbitYaw = 0.08;
-    let orbitPitch = -0.04;
+    // 시작 시점은 "객차 안에서 진행 방향을 바라보는" 1인칭.
+    // updateCamera(mode 2)의 시선식이 right*cos(yaw) + tangent*sin(yaw) 이므로
+    // yaw = PI/2 이면 선로 전방(+tangent, 열차 진행 방향)을 정면으로 본다.
+    let orbitYaw = Math.PI / 2;
+    let orbitPitch = -0.02;
     let cameraDistance = 24.0;
-
-    // 잔잔한 승차감 카메라 스웨이 (철도 미세 진동 및 대차 완충 롤링)
-    let swayTime = 0;
-    const swayOffset = new THREE.Vector3();
-    const swayRot = { pitch: 0, yaw: 0, roll: 0 };
-
-    function updateCameraSway(dt, speedKmh) {
-      const normSpeed = Math.min(1.0, Math.max(0.12, (speedKmh || 0) / 65.0));
-      swayTime += dt * (1.2 + normSpeed * 1.6);
-
-      // 선로 이음매 리듬 (미세 고주파)
-      const railRhythm = Math.sin(swayTime * 5.5) * Math.sin(swayTime * 1.8);
-      // 대차 롤링/피칭 스웨이 (저주파 부드러운 흔들림)
-      const carriageSway = Math.sin(swayTime * 1.6);
-      const carriagePitch = Math.cos(swayTime * 2.1);
-
-      swayOffset.set(
-        carriageSway * 0.022 * normSpeed,
-        (carriagePitch * 0.012 + railRhythm * 0.007) * normSpeed,
-        railRhythm * 0.012 * normSpeed
-      );
-
-      swayRot.pitch = carriagePitch * 0.0035 * normSpeed;
-      swayRot.yaw = carriageSway * 0.0040 * normSpeed;
-      swayRot.roll = -carriageSway * 0.0065 * normSpeed;
-    }
 
     let currentCarIndex = 2; // 기본 3호차 (0: 1호차 후미 ~ 9: 10호차 선두)
     let isSeated = true;
@@ -6047,24 +5549,18 @@
         const eyePos = _tmpVecA.copy(curCar.position)
           .addScaledVector(cf.right, passengerLocalPos.x)
           .addScaledVector(cf.tangent, passengerLocalPos.z);
-        // 잔잔한 열차 승차감 미세 흔들림 (스웨이 & 롤링)
-        updateCameraSway(dt, trainSpeed * 3.6);
-        eyePos.addScaledVector(cf.right, swayOffset.x)
-              .addScaledVector(cf.tangent, swayOffset.z);
-        eyePos.y += curEyeY + swayOffset.y;
+        // curCar.position.y가 곧 객차 바닥(인테리어 로컬 y=0)이므로 눈높이를 그대로 더한다.
+        // 기존의 -0.72 보정은 눈높이를 바닥 위 0.53m(좌석 등받이보다 낮은 높이)로
+        // 떨어뜨려, 앞을 보면 바닥이 화면 절반을 채우고 있었다.
+        eyePos.y += curEyeY;
 
         camera.position.copy(eyePos);
 
-        const effPitch = orbitPitch + swayRot.pitch;
-        const effYaw = orbitYaw + swayRot.yaw;
-        const lookDir = _tmpVecB.set(0, Math.sin(effPitch), 0)
-          .addScaledVector(cf.right, Math.cos(effYaw))
-          .addScaledVector(cf.tangent, Math.sin(effYaw));
+        const lookDir = _tmpVecB.set(0, Math.sin(orbitPitch), 0)
+          .addScaledVector(cf.right, Math.cos(orbitYaw))
+          .addScaledVector(cf.tangent, Math.sin(orbitYaw));
 
         camera.lookAt(_tmpVecC.copy(eyePos).add(lookDir));
-        if (swayRot.roll !== 0) {
-          camera.rotateZ(swayRot.roll);
-        }
         return;
       }
 
@@ -6332,32 +5828,24 @@
     // 12. 시간대 & 날씨 파티클 및 환경 제어 시스템
     // ------------------------------------------------------------
     const RAIN_COUNT = QUALITY.rainCount;
-    // 비: 짧은 라인 세그먼트 streak 형태로 세로/사선 낙하 (흰 점 제거)
     const rainGeo = new THREE.BufferGeometry();
-    const rainPos = new Float32Array(RAIN_COUNT * 6);
+    const rainPos = new Float32Array(RAIN_COUNT * 3);
     for (let i = 0; i < RAIN_COUNT; i++) {
-      const rx = (Math.random() - 0.5) * 450;
-      const ry = Math.random() * 85 + 2;
-      const rz = (Math.random() - 0.5) * 450;
-      const idx = i * 6;
-      rainPos[idx + 0] = rx;
-      rainPos[idx + 1] = ry;
-      rainPos[idx + 2] = rz;
-      rainPos[idx + 3] = rx - 0.25; // 열차 진행 방향에 따른 사선 궤적
-      rainPos[idx + 4] = ry - 2.4;  // 세로 빗줄기 streak 길이
-      rainPos[idx + 5] = rz - 0.1;
+      rainPos[i * 3 + 0] = (Math.random() - 0.5) * 450;
+      rainPos[i * 3 + 1] = Math.random() * 85 + 2;
+      rainPos[i * 3 + 2] = (Math.random() - 0.5) * 450;
     }
     rainGeo.setAttribute("position", new THREE.BufferAttribute(rainPos, 3));
-    const rainMat = new THREE.LineBasicMaterial({
-      color: 0x9ec0d2,
+    const rainMat = new THREE.PointsMaterial({
+      color: 0xbbddff,
+      size: 0.5,
       transparent: true,
-      opacity: 0.45
+      opacity: 0.7
     });
-    const rainSystem = new THREE.LineSegments(rainGeo, rainMat);
+    const rainSystem = new THREE.Points(rainGeo, rainMat);
     rainSystem.visible = false;
     scene.add(rainSystem);
 
-    // 눈: 천천히 흔들리며 내리는 소프트 flake
     const SNOW_COUNT = QUALITY.snowCount;
     const snowGeo = new THREE.BufferGeometry();
     const snowPos = new Float32Array(SNOW_COUNT * 3);
@@ -6368,203 +5856,105 @@
     }
     snowGeo.setAttribute("position", new THREE.BufferAttribute(snowPos, 3));
     const snowMat = new THREE.PointsMaterial({
-      color: 0xf0f6fa,
-      size: 0.72,
+      color: 0xffffff,
+      size: 0.65,
       transparent: true,
-      opacity: 0.78
+      opacity: 0.85
     });
     const snowSystem = new THREE.Points(snowGeo, snowMat);
     snowSystem.visible = false;
     scene.add(snowSystem);
 
-    // ------------------------------------------------------------
-    // 창문 빗물 맺힘 & 흘러내림 캔버스 FX (객실 창가 시점용)
-    // ------------------------------------------------------------
-    const rainCanvas = document.getElementById("window-rain-canvas");
-    const rctx = rainCanvas ? rainCanvas.getContext("2d") : null;
-    const drops = [];
-    const staticBeads = [];
-
-    function initWindowRain() {
-      if (!rainCanvas) return;
-      rainCanvas.width = window.innerWidth;
-      rainCanvas.height = window.innerHeight;
-      drops.length = 0;
-      staticBeads.length = 0;
-
-      // 흘러내리는 빗방울
-      for (let i = 0; i < 42; i++) {
-        drops.push({
-          x: Math.random() * rainCanvas.width,
-          y: Math.random() * rainCanvas.height,
-          len: 16 + Math.random() * 32,
-          speed: 1.8 + Math.random() * 4.6,
-          r: 1.2 + Math.random() * 2.0,
-          alpha: 0.22 + Math.random() * 0.35
-        });
-      }
-
-      // 유리창에 맺혀있는 미세 응결 물방울 (차창 감성)
-      for (let i = 0; i < 68; i++) {
-        staticBeads.push({
-          x: Math.random() * rainCanvas.width,
-          y: Math.random() * rainCanvas.height,
-          r: 0.8 + Math.random() * 1.8,
-          alpha: 0.18 + Math.random() * 0.38,
-          phase: Math.random() * Math.PI * 2
-        });
-      }
-    }
-
-    function updateWindowRain(dt) {
-      if (!rctx || !rainCanvas || currentWeatherPreset !== "rain" || viewMode !== 2) {
-        if (rainCanvas && rainCanvas.classList.contains("active")) {
-          rainCanvas.classList.remove("active");
-          if (rctx) rctx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
-        }
-        return;
-      }
-      if (!rainCanvas.classList.contains("active")) {
-        rainCanvas.classList.add("active");
-      }
-      rctx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
-
-      const vibAmp = Math.min(1.0, (trainSpeed * 3.6) / 50.0) * 0.6;
-      const tNow = performance.now() * 0.006;
-
-      // 1. 유리창에 맺힌 정적 물방울 (열차 주행 진동으로 미세 떨림)
-      for (let i = 0; i < staticBeads.length; i++) {
-        const b = staticBeads[i];
-        const jx = b.x + Math.sin(tNow * 12.0 + b.phase) * vibAmp;
-        const jy = b.y + Math.cos(tNow * 14.0 + b.phase) * vibAmp;
-
-        rctx.fillStyle = `rgba(225, 238, 250, ${b.alpha})`;
-        rctx.beginPath();
-        rctx.arc(jx, jy, b.r, 0, Math.PI * 2);
-        rctx.fill();
-
-        rctx.fillStyle = `rgba(255, 255, 255, ${b.alpha * 0.8})`;
-        rctx.beginPath();
-        rctx.arc(jx - b.r * 0.3, jy - b.r * 0.3, b.r * 0.35, 0, Math.PI * 2);
-        rctx.fill();
-      }
-
-      // 2. 창문을 타고 아래로 주르륵 흐르는 빗방울과 꼬리 궤적
-      for (let i = 0; i < drops.length; i++) {
-        const d = drops[i];
-        d.y += d.speed * 50 * dt;
-        if (d.y > rainCanvas.height + 35) {
-          d.y = -25;
-          d.x = Math.random() * rainCanvas.width;
-        }
-
-        rctx.fillStyle = `rgba(220, 236, 248, ${d.alpha})`;
-        rctx.beginPath();
-        rctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-        rctx.fill();
-
-        if (d.len > 0) {
-          rctx.strokeStyle = `rgba(205, 226, 242, ${d.alpha * 0.75})`;
-          rctx.lineWidth = d.r * 0.85;
-          rctx.beginPath();
-          rctx.moveTo(d.x, d.y);
-          rctx.lineTo(d.x - 0.4, d.y - d.len);
-          rctx.stroke();
-        }
-      }
-    }
-    window.addEventListener("resize", initWindowRain);
-    initWindowRain();
-
-    // ------------------------------------------------------------
-    // 차분한 감성형 시간대 프리셋 (추천 팔레트 완전 매핑)
-    // ------------------------------------------------------------
     const TIME_CONFIGS = {
       morning: {
         label: "아침",
         icon: "🌅",
         clock: "07:30",
-        sky: 0x9fbccc,
-        fogNear: 500,
-        fogFar: 4600,
+        sky: 0x8ec2eb,
+        fogNear: 1600,
+        fogFar: 7500,
         sunPos: new THREE.Vector3(650, 580, 480),
-        sunColor: 0xffeedb,
-        sunIntensity: 2.0,
-        hemiSky: 0xd4e6f4,
-        hemiGround: 0x3d4750,
-        hemiIntensity: 1.15,
-        waterSunCol: new THREE.Color(1.0, 0.94, 0.85),
-        waterSkyCol: new THREE.Color(0.60, 0.74, 0.82),
-        waterDeep: new THREE.Color(0.12, 0.28, 0.35),
-        waterShallow: new THREE.Color(0.38, 0.60, 0.68)
+        sunColor: 0xfff5e6,
+        sunIntensity: 2.2,
+        hemiSky: 0xdcf0ff,
+        hemiGround: 0x3e4d5c,
+        hemiIntensity: 1.2,
+        waterSunCol: new THREE.Color(1.0, 0.96, 0.88),
+        waterSkyCol: new THREE.Color(0.55, 0.74, 0.94),
+        waterDeep: new THREE.Color(0.025, 0.12, 0.19),
+        waterShallow: new THREE.Color(0.065, 0.28, 0.35)
       },
       noon: {
         label: "낮",
         icon: "☀️",
         clock: "13:00",
-        sky: 0x9fc3d5, // 살짝 흐린 서울 하늘 톤
-        fogNear: 600,
-        fogFar: 4800,
+        sky: 0x64a5d8,
+        fogNear: 2000,
+        fogFar: 8500,
         sunPos: new THREE.Vector3(150, 850, 200),
-        sunColor: 0xfcfbf8,
-        sunIntensity: 2.2,
-        hemiSky: 0xd8e8f2,
-        hemiGround: 0x46525c,
-        hemiIntensity: 1.2,
-        waterSunCol: new THREE.Color(1.0, 0.98, 0.94),
-        waterSkyCol: new THREE.Color(0.62, 0.77, 0.84),
-        waterDeep: new THREE.Color(0.13, 0.30, 0.36),
-        waterShallow: new THREE.Color(0.37, 0.61, 0.68)
+        sunColor: 0xffffff,
+        sunIntensity: 2.6,
+        hemiSky: 0xe8f4ff,
+        hemiGround: 0x4a5d6e,
+        hemiIntensity: 1.3,
+        waterSunCol: new THREE.Color(1.0, 1.0, 0.98),
+        waterSkyCol: new THREE.Color(0.42, 0.68, 0.92),
+        waterDeep: new THREE.Color(0.015, 0.14, 0.24),
+        waterShallow: new THREE.Color(0.05, 0.32, 0.42)
       },
       sunset: {
         label: "노을",
         icon: "🌇",
         clock: "18:45",
-        sky: 0xd7a889, // 살구/보라빛 감성 하늘
-        fogNear: 400,
-        fogFar: 4200,
+        sky: 0xdb6b42,
+        fogNear: 1200,
+        fogFar: 6500,
         sunPos: new THREE.Vector3(-750, 240, -380),
-        sunColor: 0xff8a48,
-        sunIntensity: 2.4,
-        hemiSky: 0xf09a78,
-        hemiGround: 0x382420,
-        hemiIntensity: 0.95,
-        waterSunCol: new THREE.Color(1.1, 0.65, 0.40),
-        waterSkyCol: new THREE.Color(0.80, 0.52, 0.42),
-        waterDeep: new THREE.Color(0.15, 0.12, 0.18),
-        waterShallow: new THREE.Color(0.35, 0.43, 0.56)
+        sunColor: 0xff7324,
+        sunIntensity: 2.8,
+        hemiSky: 0xff8855,
+        hemiGround: 0x3a201c,
+        hemiIntensity: 0.9,
+        waterSunCol: new THREE.Color(1.2, 0.65, 0.35),
+        waterSkyCol: new THREE.Color(0.85, 0.42, 0.28),
+        waterDeep: new THREE.Color(0.12, 0.04, 0.06),
+        waterShallow: new THREE.Color(0.28, 0.12, 0.10)
       },
       night: {
         label: "밤",
         icon: "🌙",
         clock: "21:30",
-        sky: 0x162130, // 어두운 청색 fog/하늘
-        fogNear: 250,
-        fogFar: 3600,
+        sky: 0x050914,
+        fogNear: 800,
+        fogFar: 5000,
         sunPos: new THREE.Vector3(-350, 600, -350),
-        sunColor: 0x3d567c,
-        sunIntensity: 0.45,
-        hemiSky: 0x182436,
-        hemiGround: 0x0a1018,
-        hemiIntensity: 0.4,
-        waterSunCol: new THREE.Color(0.35, 0.50, 0.75),
-        waterSkyCol: new THREE.Color(0.10, 0.16, 0.24),
-        waterDeep: new THREE.Color(0.05, 0.09, 0.14),
-        waterShallow: new THREE.Color(0.12, 0.22, 0.32)
+        sunColor: 0x3a5585,
+        sunIntensity: 0.4,
+        hemiSky: 0x111c30,
+        hemiGround: 0x060b14,
+        hemiIntensity: 0.35,
+        waterSunCol: new THREE.Color(0.35, 0.5, 0.8),
+        waterSkyCol: new THREE.Color(0.06, 0.12, 0.22),
+        waterDeep: new THREE.Color(0.005, 0.012, 0.025),
+        waterShallow: new THREE.Color(0.012, 0.03, 0.06)
       }
     };
 
-    let currentTimePreset = "noon"; // 기본 낮 (살짝 흐린 서울 하늘)
+    let currentTimePreset = "morning";
     let currentWeatherPreset = "clear";
 
     // ------------------------------------------------------------
     // 환경 적용: 시네마틱 모드에서 시간/날씨가 뚝 끊기지 않도록
+    //   computeEnv()   - 프리셋 조합에서 연속값(색/안개/광량) 목표치 산출
+    //   applyEnvValues() - 그 값들을 씬에 반영 (DOM 접근 없음, 매 프레임 호출 가능)
+    //   applyEnvDiscrete() - 파티클/오디오/가로등/HUD 라벨 등 불연속 상태
+    // 로 분리했다. applyEnv()는 셋을 즉시 적용하는 기존 동작 그대로.
     // ------------------------------------------------------------
     const SKY_UNIFORM_PRESETS = {
-      morning: { top: 0x225588, sunGlow: 160, moon: 0.0, cloudBase: 0.08 },
-      noon:    { top: 0x2b5884, sunGlow: 220, moon: 0.0, cloudBase: 0.05 },
-      sunset:  { top: 0x6e2b20, sunGlow: 110, moon: 0.0, cloudBase: 0.22 },
-      night:   { top: 0x050c18, sunGlow: 350, moon: 1.0, cloudBase: 0.10 }
+      morning: { top: 0x2262a0, sunGlow: 180, moon: 0.0, cloudBase: 0.06 },
+      noon:    { top: 0x144a86, sunGlow: 260, moon: 0.0, cloudBase: 0.04 },
+      sunset:  { top: 0x7c1e0e, sunGlow: 110, moon: 0.0, cloudBase: 0.20 },
+      night:   { top: 0x01040e, sunGlow: 400, moon: 1.0, cloudBase: 0.10 }
     };
 
     const WEATHER_LABELS = {
@@ -6576,32 +5966,31 @@
     };
 
     function computeEnv(timePreset, weatherPreset) {
-      const tc = TIME_CONFIGS[timePreset] || TIME_CONFIGS.noon;
+      const tc = TIME_CONFIGS[timePreset] || TIME_CONFIGS.morning;
       const skyCol = new THREE.Color(tc.sky);
       let fogN = tc.fogNear;
       let fogF = tc.fogFar;
       let sInt = tc.sunIntensity;
 
       if (weatherPreset === "cloudy") {
-        skyCol.lerp(new THREE.Color(0x8ca4ad), 0.55);
+        skyCol.lerp(new THREE.Color(0x8894a0), 0.45);
         sInt *= 0.55;
-        fogN = Math.min(fogN, 350);
-        fogF = Math.min(fogF, 3200);
+        fogF *= 0.75;
       } else if (weatherPreset === "rain") {
-        skyCol.lerp(new THREE.Color(0x6a828e), 0.65);
+        skyCol.lerp(new THREE.Color(0x455260), 0.65);
         sInt *= 0.38;
-        fogN = Math.min(fogN, 250);
-        fogF = Math.min(fogF, 2200);
+        fogN = Math.min(fogN, 550);
+        fogF = Math.min(fogF, 2800);
       } else if (weatherPreset === "fog") {
-        skyCol.lerp(new THREE.Color(0xb7c5c8), 0.75);
-        sInt *= 0.32;
-        fogN = 60;
-        fogF = 1200;
+        skyCol.lerp(new THREE.Color(0xb0bcc6), 0.7);
+        sInt *= 0.35;
+        fogN = 200;
+        fogF = 1600;
       } else if (weatherPreset === "snow") {
-        skyCol.lerp(new THREE.Color(0x98aab8), 0.52);
-        sInt *= 0.58;
-        fogN = Math.min(fogN, 380);
-        fogF = Math.min(fogF, 3400);
+        skyCol.lerp(new THREE.Color(0x9aa8b8), 0.5);
+        sInt *= 0.6;
+        fogN = Math.min(fogN, 800);
+        fogF = Math.min(fogF, 3800);
       }
 
       const sp = SKY_UNIFORM_PRESETS[timePreset] || SKY_UNIFORM_PRESETS.morning;
@@ -6711,20 +6100,6 @@
       waterUniforms.uSkyCol.value.copy(v.skyCol);
       waterUniforms.uDeepCol.value.copy(v.waterDeep);
       waterUniforms.uShallowCol.value.copy(v.waterShallow);
-      if (waterUniforms.uFogColor) {
-        waterUniforms.uFogColor.value.copy(v.skyCol);
-        waterUniforms.uFogNear.value = v.fogN;
-        waterUniforms.uFogFar.value = v.fogF;
-      }
-
-      // 지면, 잔디, 도로, 둔치 억새 셰이더의 Fog 유니폼 동기화
-      [groundShader, grassShader, highwayShader, grassBladeShader].forEach(s => {
-        if (s && s.uniforms && s.uniforms.uFogColor) {
-          s.uniforms.uFogColor.value.copy(v.skyCol);
-          s.uniforms.uFogNear.value = v.fogN;
-          s.uniforms.uFogFar.value = v.fogF;
-        }
-      });
     }
 
     function applyEnvDiscrete() {
@@ -7065,11 +6440,8 @@
       if (e.code === "KeyK") {
         cycleTime();
       }
-      if (e.code === "KeyH") {
-        if (typeof toggleAmbientMode === "function") toggleAmbientMode();
-      }
       if (e.code === "KeyL") {
-        if (typeof toggleLogbook === "function") toggleLogbook();
+        cycleWeather();
       }
       // W 단축키: MSFS 날씨/시간 패널 토글
       if (e.code === "KeyW" && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
@@ -7081,10 +6453,8 @@
         }
       }
       if (e.code === "Escape") {
-        if (typeof closeLogbook === "function" && typeof logbookOpen !== "undefined" && logbookOpen) {
-          closeLogbook();
-          e.preventDefault();
-        } else if (typeof closeWxPanel !== "undefined" && wxPanel && wxPanel.classList.contains("open")) {
+        // ESC 로 wx 패널 닫기
+        if (typeof closeWxPanel !== "undefined" && wxPanel && wxPanel.classList.contains("open")) {
           closeWxPanel();
           e.preventDefault();
         }
@@ -7913,7 +7283,7 @@
     bgmSyncUI();
 
     // ------------------------------------------------------------
-    // 시네마틱 / BGM / 감상 모드 / 로그북 시스템 UI 바인딩
+    // 시네마틱 / BGM UI 바인딩
     // ------------------------------------------------------------
     function toggleCinematic() { setCinematic(!cinematicOn); }
 
@@ -7922,126 +7292,11 @@
     document.getElementById("mob-btn-bgm")?.addEventListener("click", toggleBgmPanel);
     document.getElementById("btn-bgm-desktop")?.addEventListener("click", toggleBgmPanel);
 
-    // [감상 모드 H] 모든 HUD를 숨기고 창밖 풍경에만 몰입
-    let ambientMode = false;
-    const btnAmbientMode = document.getElementById("btn-ambient-mode");
-    const mobBtnAmbient = document.getElementById("mob-btn-ambient");
-
-    function toggleAmbientMode(force) {
-      ambientMode = (force !== undefined) ? force : !ambientMode;
-      document.body.classList.toggle("ambient-mode", ambientMode);
-      if (btnAmbientMode) btnAmbientMode.classList.toggle("active", ambientMode);
-      if (mobBtnAmbient) mobBtnAmbient.classList.toggle("active", ambientMode);
-      if (ambientMode) {
-        closeLogbook();
-        if (typeof closeBgmPanel === "function") closeBgmPanel();
-        if (typeof closeWxPanel === "function") closeWxPanel();
-      }
-    }
-
-    btnAmbientMode?.addEventListener("click", () => toggleAmbientMode());
-    mobBtnAmbient?.addEventListener("click", () => toggleAmbientMode());
-
-    // [UI 5초 자동 페이드아웃] 조작이 없을 때 부드럽게 페이드아웃, 마우스/터치 시 즉시 복원
-    let uiIdleTimer = 0;
-    const UI_IDLE_TIMEOUT = 5.0;
-    let uiDimmed = false;
-
-    function resetUIAutoHide() {
-      uiIdleTimer = 0;
-      if (uiDimmed) {
-        uiDimmed = false;
-        document.body.classList.remove("ui-dimmed");
-      }
-    }
-
-    function checkUIAutoHide(dt) {
-      if (ambientMode) return;
-      uiIdleTimer += dt;
-      if (uiIdleTimer >= UI_IDLE_TIMEOUT && !uiDimmed) {
-        uiDimmed = true;
-        document.body.classList.add("ui-dimmed");
-      }
-    }
-
-    ["mousemove", "mousedown", "touchstart", "touchmove", "keydown", "wheel"].forEach(evt => {
-      window.addEventListener(evt, resetUIAutoHide, { passive: true });
-    });
-
-    // [한강선 운행 로그북 L] 통과 역, 시각, 짧은 에세이 기록
-    const logbookCard = document.getElementById("card-logbook");
-    const logbookList = document.getElementById("logbook-list");
-    const btnLogbookToggle = document.getElementById("btn-logbook-toggle");
-    const btnLogbookClose = document.getElementById("btn-logbook-close");
-    const mobBtnLogbook = document.getElementById("mob-btn-logbook");
-
-    let logbookOpen = false;
-    const recordedMilestones = new Set();
-
-    function openLogbook() {
-      if (!logbookCard) return;
-      logbookOpen = true;
-      logbookCard.classList.add("open");
-      btnLogbookToggle?.classList.add("active");
-      mobBtnLogbook?.classList.add("active");
-    }
-
-    function closeLogbook() {
-      if (!logbookCard) return;
-      logbookOpen = false;
-      logbookCard.classList.remove("open");
-      btnLogbookToggle?.classList.remove("active");
-      mobBtnLogbook?.classList.remove("active");
-    }
-
-    function toggleLogbook(force) {
-      const target = (force !== undefined) ? force : !logbookOpen;
-      if (target) openLogbook();
-      else closeLogbook();
-    }
-
-    function addLogbookEntry(text, badge = "기록") {
-      if (!logbookList) return;
-      const item = document.createElement("div");
-      item.className = "logbook-entry";
-      const timeStr = (typeof currentTimePreset !== "undefined" && TIME_CONFIGS[currentTimePreset])
-        ? TIME_CONFIGS[currentTimePreset].clock : "07:30";
-      item.innerHTML = `<span class="log-time">${timeStr}</span><span class="log-badge">${badge}</span>${text}`;
-      logbookList.appendChild(item);
-      logbookList.scrollTop = logbookList.scrollHeight;
-    }
-
-    const MILESTONE_DEFS = [
-      { id: "start", pMin: 0.02, pMax: 0.10, badge: "출발", text: "열차가 서서히 속도를 올립니다. 객차 안으로 잔잔한 햇살과 함께 강변의 평온함이 들어옵니다." },
-      { id: "bridge_enter", pMin: 0.22, pMax: 0.30, badge: "철교", text: "잠실철교 트러스 구간 진입. 차창 너머로 시원하게 펼쳐진 한강 수면과 유람선이 보입니다." },
-      { id: "river_center", pMin: 0.44, pMax: 0.52, badge: "한강", text: "물결 위에 부서지는 은빛 윤슬. 가만히 책을 덮고 창밖을 바라보게 되는 고요한 강물 위의 시간입니다." },
-      { id: "north_bank", pMin: 0.65, pMax: 0.73, badge: "강변", text: "강변북로를 지나는 자동차들의 긴 행렬. 열차는 물길을 건너 북단 도심으로 향합니다." },
-      { id: "city_viaduct", pMin: 0.84, pMax: 0.92, badge: "도심", text: "도심 고가 선로를 따라 아파트와 빌딩 숲이 스쳐 지나갑니다. 일상과 여유가 교차하는 구간입니다." }
-    ];
-
-    function checkLogbookTriggers(p) {
-      for (let i = 0; i < MILESTONE_DEFS.length; i++) {
-        const m = MILESTONE_DEFS[i];
-        if (p >= m.pMin && p <= m.pMax && !recordedMilestones.has(m.id)) {
-          recordedMilestones.add(m.id);
-          addLogbookEntry(m.text, m.badge);
-          break;
-        }
-      }
-    }
-
-    btnLogbookToggle?.addEventListener("click", () => toggleLogbook());
-    btnLogbookClose?.addEventListener("click", closeLogbook);
-    mobBtnLogbook?.addEventListener("click", () => toggleLogbook());
-
     document.addEventListener("keydown", (e) => {
       if (e.code === "KeyC") toggleCinematic();
       if (e.code === "KeyB") toggleBgmPanel();
-      if (e.code === "KeyH") toggleAmbientMode();
-      if (e.code === "KeyL") toggleLogbook();
       if (e.code === "Escape") {
-        if (logbookOpen) closeLogbook();
-        else if (bgmPanel && bgmPanel.classList.contains("open")) closeBgmPanel();
+        if (bgmPanel && bgmPanel.classList.contains("open")) closeBgmPanel();
         else if (cinematicOn) setCinematic(false);
       }
     });
@@ -8056,10 +7311,6 @@
       const time = clock.elapsedTime;
 
       waterUniforms.uTime.value = time;
-      if (typeof grassBladeShader !== "undefined") grassBladeShader.uniforms.uTime.value = time;
-      if (typeof grassShader !== "undefined") grassShader.uniforms.uTime.value = time;
-      if (typeof groundShader !== "undefined") groundShader.uniforms.uTime.value = time;
-
       if (beaconLight) {
         beaconLight.intensity = (Math.sin(time * 3.5) > 0.2) ? 3.0 : 0.2;
       }
@@ -8068,16 +7319,9 @@
         const leadPos = (cars && cars[0]) ? cars[0].position : camera.position;
         rainSystem.position.set(leadPos.x, 0, leadPos.z);
         const pos = rainGeo.attributes.position.array;
-        const dropSpeed = 95.0 * dt;
-        for (let i = 0; i < RAIN_COUNT; i++) {
-          const idx = i * 6;
-          pos[idx + 1] -= dropSpeed;
-          pos[idx + 4] -= dropSpeed;
-          if (pos[idx + 4] < 0) {
-            const newY = Math.random() * 20 + 75;
-            pos[idx + 1] = newY;
-            pos[idx + 4] = newY - 2.4;
-          }
+        for (let i = 1; i < RAIN_COUNT * 3; i += 3) {
+          pos[i] -= 85.0 * dt;
+          if (pos[i] < 0) pos[i] = 85.0;
         }
         rainGeo.attributes.position.needsUpdate = true;
       }
@@ -8087,22 +7331,12 @@
         snowSystem.position.set(leadPos.x, 0, leadPos.z);
         const pos = snowGeo.attributes.position.array;
         for (let i = 0; i < SNOW_COUNT * 3; i += 3) {
-          pos[i + 1] -= 9.5 * dt; // 부드럽고 느린 하강
-          pos[i + 0] += Math.sin(time * 0.8 + i) * 0.14; // 좌우 나풀거림
-          pos[i + 2] += Math.cos(time * 0.6 + i) * 0.10; // 전후 부유감
+          pos[i + 1] -= 12.0 * dt;
+          pos[i + 0] += Math.sin(time + i) * 0.08;
           if (pos[i + 1] < 0) pos[i + 1] = 85.0;
         }
         snowGeo.attributes.position.needsUpdate = true;
       }
-
-      // 창문 빗물 효과 갱신 (승객 모드 및 비 날씨)
-      updateWindowRain(dt);
-
-      // UI 5초 미조작 감지 및 페이드
-      checkUIAutoHide(dt);
-
-      // 감상형 시뮬레이터 마일스톤 로그북 자동 트리거
-      checkLogbookTriggers(progress);
 
       processMobileInput(dt);
       updatePhysics(dt);

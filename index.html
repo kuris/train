@@ -2233,9 +2233,9 @@
       grass: 0x9bbd91,
       water: 0x5f9cad,
       waterDeep: 0x224b57,
-      trainBody: 0x2b353b,
-      trainDark: 0x161f26,
-      trainLine: 0x009b44,
+      trainBody: 0xc2ccd4, // 서울 2호선 정통 스테인리스 스틸 실버
+      trainDark: 0x475569, // 세련된 도어 고무 프레임 & 섀도우
+      trainLine: 0x009e47, // 2호선 시그니처 그린 라인
       shadow: 0x000000
     };
 
@@ -4979,7 +4979,7 @@
     function buildSeoulMetroInterior() {
       const interior = new THREE.Group();
 
-      const matFloor = new THREE.MeshStandardMaterial({ color: 0x6e767e, roughness: 0.75 });
+      const matFloor = new THREE.MeshStandardMaterial({ color: 0x8c96a0, roughness: 0.75 });
       const floor = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.08, 23.5), matFloor);
       floor.position.set(0, -0.04, 0);
       interior.add(floor);
@@ -4990,18 +4990,18 @@
       greenLine.position.set(0, 0.005, 0);
       interior.add(greenLine);
 
-      const matCeiling = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5 });
+      const matCeiling = new THREE.MeshStandardMaterial({ color: 0xf4f7fa, roughness: 0.5 });
       const ceiling = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.06, 23.5), matCeiling);
       ceiling.position.set(0, 2.38, 0);
       interior.add(ceiling);
 
       const matLightGlow = new THREE.MeshStandardMaterial({
         color: 0xffffff,
-        emissive: 0xfffae8,
-        emissiveIntensity: 0.95,
+        emissive: 0xfffcf0,
+        emissiveIntensity: 1.2,
         roughness: 0.2
       });
-      const matLightFrame = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+      const matLightFrame = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
 
       [-0.55, 0.55].forEach(lx => {
         const lightBox = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.06, 21.0), matLightFrame);
@@ -5014,13 +5014,20 @@
         interior.add(lightStrip);
       });
 
+      // 객실 내부 조명 (승객실 내부가 어둡지 않도록 은은하고 따뜻한 실내 필라이트)
+      [-6.0, 0.0, 6.0].forEach(lz => {
+        const carLight = new THREE.PointLight(0xfffaee, 0.85, 14.0);
+        carLight.position.set(0, 2.15, lz);
+        interior.add(carLight);
+      });
+
       const matTealSeat = new THREE.MeshStandardMaterial({
-        color: 0x16424e,
+        color: 0x245866,
         roughness: 0.38,
         metalness: 0.08
       });
       const matSeatPiping = new THREE.MeshStandardMaterial({
-        color: 0x3d9ab0,
+        color: 0x52b8ce,
         roughness: 0.3
       });
       const matSeatWhiteDivider = new THREE.MeshStandardMaterial({
@@ -5438,11 +5445,12 @@
     function buildSeoulMetroCarExterior(isLeading, isPassengerCar, carIdx) {
       const carGroup = new THREE.Group();
 
-      // 차분한 감성형 열차 외장 재질 (세련된 차콜/회청색 스테인리스 & 딥그린 라인)
-      const matBody = new THREE.MeshStandardMaterial({ color: PALETTE.trainBody, metalness: 0.65, roughness: 0.35 });
-      const matStainlessBead = new THREE.MeshStandardMaterial({ color: 0x3d4952, metalness: 0.75, roughness: 0.25 });
+      // 서울 2호선 정통 스테인리스 스틸 실버 & 비비드 그린 라인
+      const matBody = new THREE.MeshStandardMaterial({ color: PALETTE.trainBody, metalness: 0.45, roughness: 0.35 });
+      const matStainlessBead = new THREE.MeshStandardMaterial({ color: 0xdde4ec, metalness: 0.55, roughness: 0.28 });
+      const matInteriorWall = new THREE.MeshStandardMaterial({ color: 0xeef2f7, roughness: 0.45 });
       const matGreenStripe = new THREE.MeshStandardMaterial({ color: PALETTE.trainLine, roughness: 0.4 });
-      const matDarkGlass = new THREE.MeshStandardMaterial({ color: 0x0a141e, roughness: 0.08, metalness: 0.85, transparent: true, opacity: 0.72 });
+      const matDarkGlass = new THREE.MeshStandardMaterial({ color: 0x426e7e, roughness: 0.12, metalness: 0.35, transparent: true, opacity: 0.52 });
       const matDoorRubber = new THREE.MeshBasicMaterial({ color: PALETTE.trainDark });
       const matDoorYellow = new THREE.MeshBasicMaterial({ color: 0xeab308 }); // 도어 안전 경고 노란선
       const matDoorLamp = new THREE.MeshBasicMaterial({ color: 0xf59e0b }); // 도어 개폐 주황 램프
@@ -5523,20 +5531,20 @@
           carGroup.add(ledBoard);
         });
       } else {
-        // 3호차 파노라마 승객차 외벽 (창밖 조망 극대화 & 바닥 클리핑 제거)
-        const wallLowerL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 23.5), matBody);
+        // 3호차 파노라마 승객차 외벽 (창밖 조망 극대화 & 밝고 깨끗한 실내 벽면)
+        const wallLowerL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 23.5), matInteriorWall);
         wallLowerL.position.set(-1.52, 0.375, 0);
         carGroup.add(wallLowerL);
 
-        const wallLowerR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 23.5), matBody);
+        const wallLowerR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.46, 23.5), matInteriorWall);
         wallLowerR.position.set(1.52, 0.23, 0);
         carGroup.add(wallLowerR);
 
-        const wallUpperL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 23.5), matBody);
+        const wallUpperL = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.42, 23.5), matInteriorWall);
         wallUpperL.position.set(-1.52, 2.19, 0);
         carGroup.add(wallUpperL);
 
-        const wallUpperR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.36, 23.5), matBody);
+        const wallUpperR = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.36, 23.5), matInteriorWall);
         wallUpperR.position.set(1.52, 2.22, 0);
         carGroup.add(wallUpperR);
 
@@ -6489,10 +6497,10 @@
         fogFar: 4600,
         sunPos: new THREE.Vector3(650, 580, 480),
         sunColor: 0xffeedb,
-        sunIntensity: 2.0,
-        hemiSky: 0xd4e6f4,
-        hemiGround: 0x3d4750,
-        hemiIntensity: 1.15,
+        sunIntensity: 2.1,
+        hemiSky: 0xd8ebf8,
+        hemiGround: 0x647482,
+        hemiIntensity: 1.25,
         waterSunCol: new THREE.Color(1.0, 0.94, 0.85),
         waterSkyCol: new THREE.Color(0.60, 0.74, 0.82),
         waterDeep: new THREE.Color(0.12, 0.28, 0.35),
@@ -6507,10 +6515,10 @@
         fogFar: 4800,
         sunPos: new THREE.Vector3(150, 850, 200),
         sunColor: 0xfcfbf8,
-        sunIntensity: 2.2,
-        hemiSky: 0xd8e8f2,
-        hemiGround: 0x46525c,
-        hemiIntensity: 1.2,
+        sunIntensity: 2.3,
+        hemiSky: 0xdcebf5,
+        hemiGround: 0x6c7c8a,
+        hemiIntensity: 1.38,
         waterSunCol: new THREE.Color(1.0, 0.98, 0.94),
         waterSkyCol: new THREE.Color(0.62, 0.77, 0.84),
         waterDeep: new THREE.Color(0.13, 0.30, 0.36),
@@ -6526,9 +6534,9 @@
         sunPos: new THREE.Vector3(-750, 240, -380),
         sunColor: 0xff8a48,
         sunIntensity: 2.4,
-        hemiSky: 0xf09a78,
-        hemiGround: 0x382420,
-        hemiIntensity: 0.95,
+        hemiSky: 0xf4a688,
+        hemiGround: 0x52403a,
+        hemiIntensity: 1.15,
         waterSunCol: new THREE.Color(1.1, 0.65, 0.40),
         waterSkyCol: new THREE.Color(0.80, 0.52, 0.42),
         waterDeep: new THREE.Color(0.15, 0.12, 0.18),
@@ -6542,11 +6550,11 @@
         fogNear: 250,
         fogFar: 3600,
         sunPos: new THREE.Vector3(-350, 600, -350),
-        sunColor: 0x3d567c,
-        sunIntensity: 0.45,
-        hemiSky: 0x182436,
-        hemiGround: 0x0a1018,
-        hemiIntensity: 0.4,
+        sunColor: 0x4a6894,
+        sunIntensity: 0.55,
+        hemiSky: 0x22324a,
+        hemiGround: 0x182432,
+        hemiIntensity: 0.58,
         waterSunCol: new THREE.Color(0.35, 0.50, 0.75),
         waterSkyCol: new THREE.Color(0.10, 0.16, 0.24),
         waterDeep: new THREE.Color(0.05, 0.09, 0.14),
